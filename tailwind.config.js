@@ -1,0 +1,76 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        midnight: {
+          DEFAULT: '#071456',
+          50: '#eef0f9',
+          100: '#d3d8ee',
+          200: '#a7b0dd',
+          300: '#7b89cc',
+          400: '#4f61bb',
+          500: '#2c3c9e',
+          600: '#152b7e',
+          700: '#0f1e66',
+          800: '#0a1650',
+          900: '#071456',
+          950: '#040a30',
+        },
+        royal: {
+          DEFAULT: '#00139E',
+          50: '#e6e8fb',
+          100: '#c0c6f5',
+          200: '#8b96ec',
+          300: '#5665e2',
+          400: '#2c3ed6',
+          500: '#00139E',
+          600: '#00108a',
+          700: '#000d70',
+          800: '#000a57',
+          900: '#00073d',
+        },
+        alert: {
+          DEFAULT: '#FE1513',
+          50: '#fff0f0',
+          100: '#ffd6d5',
+          200: '#ffadab',
+          300: '#ff8481',
+          400: '#ff5b57',
+          500: '#FE1513',
+          600: '#e30f0d',
+          700: '#b80c0a',
+          800: '#8c0908',
+          900: '#610605',
+        },
+        steel: {
+          DEFAULT: '#A3B5CB',
+          50: '#f3f5f8',
+          100: '#e4e9f0',
+          200: '#c9d4e2',
+          300: '#A3B5CB',
+          400: '#8199b9',
+          500: '#5f7ea3',
+          600: '#4a6486',
+          700: '#3a4f6a',
+        },
+        warm: {
+          DEFAULT: '#FFF8F8',
+        },
+      },
+      fontFamily: {
+        display: ['"Clash Grotesk"', 'Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        card: '0 1px 2px rgba(7, 20, 86, 0.06), 0 4px 16px rgba(7, 20, 86, 0.06)',
+        glow: '0 0 0 4px rgba(0, 19, 158, 0.12)',
+      },
+      borderRadius: {
+        xl2: '1.25rem',
+      },
+    },
+  },
+  plugins: [],
+}
