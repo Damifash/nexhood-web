@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Plus, QrCode, ScanLine, X as XIcon, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, QrCode, ScanLine, X as XIcon, CheckCircle2, AlertCircle, Share2, Copy } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { createVisitorPass, listVisitorPasses, validateVisitorPass } from '@/lib/api'
 import type { VisitorPass } from '@/lib/types'
@@ -7,6 +7,55 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner, EmptyState } from '@/components/ui/Spinner'
 import { Badge, statusTone } from '@/components/ui/Badge'
+
+function base64ToPngFile(base64: string, filename: string): File {
+  const bytes = atob(base64)
+  const arr = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+  return new File([arr], filename, { type: 'image/png' })
+}
+
+function SharePassButton({ pass }: { pass: VisitorPass }) {
+  const [copied, setCopied] = useState(false)
+
+  const shareText = `You've been invited to ${pass.host_name ? `visit ${pass.host_name}'s` : 'an'} estate via Nexhood.\nYour entry code: ${pass.code}\nValid ${new Date(pass.valid_from).toLocaleString()} to ${new Date(pass.valid_until).toLocaleString()}.\nShow this code (or the QR) at the gate.`
+
+  async function handleShare() {
+    // Prefer sharing the actual QR image where the platform supports file
+    // sharing (most mobile browsers) — that's what a visitor actually needs
+    // to scan. Text-only share, then clipboard, are the fallbacks for
+    // browsers (mostly desktop) that don't support any of this.
+    try {
+      const file = base64ToPngFile(pass.qr_code, `nexhood-pass-${pass.code}.png`)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Nexhood visitor pass', text: shareText })
+        return
+      }
+      if (navigator.share) {
+        await navigator.share({ title: 'Nexhood visitor pass', text: shareText })
+        return
+      }
+    } catch {
+      // User cancelled the share sheet, or the platform rejected it —
+      // fall through to clipboard rather than showing an error either way.
+    }
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard API blocked (e.g. no HTTPS/permission) — nothing more we
+      // can do automatically; the code is already visible on screen to
+      // copy by hand.
+    }
+  }
+
+  return (
+    <button onClick={handleShare} className="btn-outline text-xs px-3 py-1.5 mt-4">
+      {copied ? <><Copy className="h-3.5 w-3.5" /> Copied to clipboard</> : <><Share2 className="h-3.5 w-3.5" /> Share with visitor</>}
+    </button>
+  )
+}
 
 function toLocalInput(d: Date) {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -121,6 +170,7 @@ export default function VisitorPasses() {
             <p className="text-xs text-midnight-400 mt-4">
               Valid {new Date(viewPass.valid_from).toLocaleString()} to {new Date(viewPass.valid_until).toLocaleString()}
             </p>
+            <SharePassButton pass={viewPass} />
           </div>
         )}
       </Modal>

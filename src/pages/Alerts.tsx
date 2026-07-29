@@ -43,16 +43,19 @@ export default function Alerts() {
 
   // Email delivery isn't instant enough to rely on for real emergencies —
   // a direct call is the actual fast path, so pull the estate's police
-  // number in for a one-tap "Call police" button.
+  // number in for a one-tap "Call police" button. This used to be limited
+  // to guards/admins, but a resident in the middle of an emergency needs
+  // this exactly as much — sometimes more, since they're often first on
+  // the scene. Emergency contacts stay management-only below.
   useEffect(() => {
-    if (!canManage || !user?.estate_id) return
+    if (!user?.estate_id) return
     getEstate(user.estate_id)
       .then((estate) => {
         setPolicePhone((estate.settings?.police_phone as string) || '')
         setContacts((estate.settings?.emergencyContacts as { name: string; phone?: string }[]) || [])
       })
       .catch(() => {})
-  }, [canManage, user?.estate_id])
+  }, [user?.estate_id])
 
   async function handleSend(e: FormEvent) {
     e.preventDefault()
@@ -83,13 +86,13 @@ export default function Alerts() {
     }
   }
 
-  async function handlePolice(id: string) {
-    try {
-      await notifyPolice(id)
-      load()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not notify police')
-    }
+  // Opens the phone dialer immediately (the part that actually matters in
+  // an emergency) and separately fires the email notification/audit-log
+  // call in the background — best-effort, doesn't block or interrupt the
+  // call if it fails. Previously this button ONLY sent a silent email,
+  // which is why it felt like it "did nothing."
+  function handlePoliceCall(id: string) {
+    notifyPolice(id).then(load).catch(() => {})
   }
 
   async function handleResolve(id: string) {
@@ -107,7 +110,7 @@ export default function Alerts() {
         title="Alerts"
         subtitle="Send and respond to real-time emergency alerts."
         action={
-          canManage && policePhone ? (
+          policePhone ? (
             <a href={`tel:${policePhone}`} className="btn-alert">
               <Phone className="h-4 w-4" /> Call police
             </a>
@@ -172,30 +175,41 @@ export default function Alerts() {
                       {a.police_status === 'notified' && ' · Police notified'}
                     </p>
                   </div>
-                  {canManage && (
-                    <div className="flex gap-2 shrink-0 flex-wrap">
-                      {a.sender_phone && (
-                        <a href={`tel:${a.sender_phone}`} className="btn-outline text-xs px-3 py-1.5">
-                          <Phone className="h-3.5 w-3.5" /> Call {a.sender_name || 'sender'}
-                        </a>
-                      )}
-                      {a.status !== 'resolved' && !acknowledgedByMe && (
-                        <button onClick={() => handleAck(a.id)} className="btn-outline text-xs px-3 py-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Acknowledge
-                        </button>
-                      )}
-                      {a.status !== 'resolved' && (a.priority === 'critical' || a.priority === 'high') && a.police_status !== 'notified' && (
-                        <button onClick={() => handlePolice(a.id)} className="btn-alert text-xs px-3 py-1.5">
-                          <PhoneCall className="h-3.5 w-3.5" /> Notify police
-                        </button>
-                      )}
-                      {a.status !== 'resolved' && (
-                        <button onClick={() => handleResolve(a.id)} className="btn-outline text-xs px-3 py-1.5">
-                          <X className="h-3.5 w-3.5" /> Resolve
-                        </button>
-                      )}
-                    </div>
-                  )}
+                  <div className="flex gap-2 shrink-0 flex-wrap">
+                    {/* Available to everyone, not just guards/admins — a
+                        resident who just raised a critical alert needs to
+                        be able to call police themselves, immediately,
+                        without waiting on staff. Opens the dialer directly
+                        instead of only sending a silent email. */}
+                    {a.status !== 'resolved' && (a.priority === 'critical' || a.priority === 'high') && policePhone && (
+                      <a
+                        href={`tel:${policePhone}`}
+                        onClick={() => handlePoliceCall(a.id)}
+                        className="btn-alert text-xs px-3 py-1.5"
+                      >
+                        <PhoneCall className="h-3.5 w-3.5" /> {a.police_status === 'notified' ? 'Call police again' : 'Call police'}
+                      </a>
+                    )}
+                    {canManage && (
+                      <>
+                        {a.sender_phone && (
+                          <a href={`tel:${a.sender_phone}`} className="btn-outline text-xs px-3 py-1.5">
+                            <Phone className="h-3.5 w-3.5" /> Call {a.sender_name || 'sender'}
+                          </a>
+                        )}
+                        {a.status !== 'resolved' && !acknowledgedByMe && (
+                          <button onClick={() => handleAck(a.id)} className="btn-outline text-xs px-3 py-1.5">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Acknowledge
+                          </button>
+                        )}
+                        {a.status !== 'resolved' && (
+                          <button onClick={() => handleResolve(a.id)} className="btn-outline text-xs px-3 py-1.5">
+                            <X className="h-3.5 w-3.5" /> Resolve
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </li>
               )
             })}

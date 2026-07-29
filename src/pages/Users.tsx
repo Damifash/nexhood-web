@@ -57,7 +57,7 @@ export default function Users() {
         title="Users"
         subtitle="Manage residents, guards, admins and police in your estate."
         action={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button className="btn-outline" onClick={() => setBulkOpen(true)}>
               <Upload className="h-4 w-4" /> Bulk invite
             </button>
