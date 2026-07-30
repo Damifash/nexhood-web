@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { HeartHandshake, ExternalLink, AlertCircle, Plus, Users2, Shield } from 'lucide-react'
-import { createCampaign, donate, listCampaigns } from '@/lib/api'
+import { HeartHandshake, ExternalLink, AlertCircle, Plus, Users2, Shield, CheckCircle2, Clock } from 'lucide-react'
+import { createCampaign, donate, listCampaigns, listPendingDonations, verifyDonation, type PendingDonation } from '@/lib/api'
 import type { WelfareCampaign } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -46,9 +46,11 @@ export default function Welfare() {
       />
 
       <div className="rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 mb-6">
-        Payments aren't wired up to a real processor yet — donating here records your pledge but won't move money
-        until Paystack is connected. Nothing to worry about, just don't expect an actual charge yet.
+        Payments aren't wired up to a real processor yet — donating here records a pledge, not a real charge.
+        Pledges only count toward a campaign's total once {isAdmin ? 'you confirm' : 'your admin confirms'} the money actually arrived.
       </div>
+
+      {isAdmin && <PendingDonationsCard />}
 
       {loading ? (
         <div className="flex justify-center py-16 text-royal"><Spinner className="h-6 w-6" /></div>
@@ -160,7 +162,8 @@ function DonateModal({ target, onClose }: { target: WelfareCampaign | 'general';
 
       {link ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
-          <p className="text-sm text-emerald-800 mb-3">Your donation link is ready.</p>
+          <p className="text-sm text-emerald-800 mb-1">Your pledge has been recorded.</p>
+          <p className="text-xs text-emerald-700 mb-3">It won't show up in the campaign total until your admin confirms the money's actually in.</p>
           <a href={link} target="_blank" rel="noreferrer" className="btn-primary">
             Continue to checkout <ExternalLink className="h-4 w-4" />
           </a>
@@ -286,5 +289,76 @@ function CreateCampaignModal({ open, onClose, onCreated }: { open: boolean; onCl
         </button>
       </form>
     </Modal>
+  )
+}
+
+function PendingDonationsCard() {
+  const [pending, setPending] = useState<PendingDonation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [verifyingId, setVerifyingId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  async function load() {
+    setLoading(true)
+    try {
+      setPending(await listPendingDonations())
+    } catch {
+      // Non-critical — the rest of the page still works without this card.
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  async function handleVerify(id: string) {
+    setError('')
+    setVerifyingId(id)
+    try {
+      await verifyDonation(id)
+      setPending((prev) => prev.filter((d) => d.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not verify donation')
+    } finally {
+      setVerifyingId(null)
+    }
+  }
+
+  if (loading || pending.length === 0) return null
+
+  return (
+    <div className="card p-6 mb-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Clock className="h-4 w-4 text-amber-500" />
+        <h3 className="font-display font-semibold text-midnight-900">Pending donations</h3>
+      </div>
+      <p className="text-sm text-midnight-400 mb-4">
+        Pledges waiting on confirmation — mark as received once the money's actually in, and it'll count toward the campaign total.
+      </p>
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3 mb-4">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
+        </div>
+      )}
+      <ul className="divide-y divide-midnight-50">
+        {pending.map((d) => (
+          <li key={d.id} className="py-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-midnight-900">₦{d.amount.toLocaleString()} · {d.donor_name || 'A resident'}</p>
+              <p className="text-xs text-midnight-400 capitalize">{d.for_role} · {new Date(d.timestamp).toLocaleDateString()}</p>
+            </div>
+            <button
+              onClick={() => handleVerify(d.id)}
+              disabled={verifyingId === d.id}
+              className="btn-outline text-xs px-3 py-1.5 shrink-0"
+            >
+              {verifyingId === d.id ? <Spinner className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Mark received
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

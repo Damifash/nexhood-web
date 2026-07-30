@@ -56,7 +56,7 @@ export default function Register() {
           </div>
           <div>
             <label className="label" htmlFor="phone">Phone</label>
-            <input id="phone" required className="input" placeholder="+2348012345678" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
+            <input id="phone" required className="input" placeholder="08012345678" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
           </div>
         </div>
         <div>

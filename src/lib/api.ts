@@ -89,6 +89,24 @@ export async function fetchMe() {
   return data as User
 }
 
+export async function updateMyProfile(payload: { name?: string; phone?: string; email?: string; apartment?: string }) {
+  try {
+    const { data } = await api.patch('/api/users/me', payload)
+    return data as User
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not update profile'))
+  }
+}
+
+export async function updateEstateProfile(id: string, payload: { name?: string; address?: string }) {
+  try {
+    const { data } = await api.patch(`/api/estates/${id}`, payload)
+    return data.estate as Estate
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not update estate'))
+  }
+}
+
 export async function forgotPassword(email: string) {
   try {
     const { data } = await api.post('/api/auth/forgot-password', { email })
@@ -244,7 +262,7 @@ export async function resolveAlert(id: string) {
 export async function notifyPolice(alert_id: string) {
   try {
     const { data } = await api.post('/api/police/integration', { alert_id })
-    return data
+    return data as { message: string; status: string; recipients: number }
   } catch (e) {
     throw new Error(errMsg(e, 'Could not notify police'))
   }
@@ -363,9 +381,33 @@ export async function createCampaign(payload: { title: string; description?: str
 export async function donate(amount: number, for_role: 'guards' | 'police', campaign_id?: string) {
   try {
     const { data } = await api.post('/api/welfare/donate', { amount, for_role, campaign_id })
-    return data as { paystack_link: string }
+    return data as { paystack_link: string; donation_id: string; status: string }
   } catch (e) {
     throw new Error(errMsg(e, 'Could not start donation'))
+  }
+}
+
+export interface PendingDonation {
+  id: string
+  amount: number
+  for_role: 'guards' | 'police'
+  donor_name?: string
+  campaign_id?: string | null
+  timestamp: string
+  status: string
+}
+
+export async function listPendingDonations() {
+  const { data } = await api.get('/api/welfare/donations/pending')
+  return data as PendingDonation[]
+}
+
+export async function verifyDonation(id: string) {
+  try {
+    const { data } = await api.patch(`/api/welfare/donations/${id}/verify`)
+    return data
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not verify donation'))
   }
 }
 

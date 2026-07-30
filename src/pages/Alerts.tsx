@@ -24,6 +24,7 @@ export default function Alerts() {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [policePhone, setPolicePhone] = useState('')
   const [contacts, setContacts] = useState<{ name: string; phone?: string }[]>([])
   const canManage = user?.role === 'guard' || user?.role === 'admin' || user?.role === 'super_admin'
@@ -87,12 +88,21 @@ export default function Alerts() {
   }
 
   // Opens the phone dialer immediately (the part that actually matters in
-  // an emergency) and separately fires the email notification/audit-log
-  // call in the background — best-effort, doesn't block or interrupt the
-  // call if it fails. Previously this button ONLY sent a silent email,
-  // which is why it felt like it "did nothing."
+  // an emergency) and separately fires the notification call in the
+  // background — best-effort, doesn't block or interrupt the call if it
+  // fails. Previously this gave zero on-screen feedback either way, which
+  // is why it felt like the button "did nothing" even when the email
+  // technically sent — now it always surfaces a banner saying exactly what
+  // happened (notified N people, or "no police contact set up yet").
   function handlePoliceCall(id: string) {
-    notifyPolice(id).then(load).catch(() => {})
+    setNotice('')
+    setError('')
+    notifyPolice(id)
+      .then((res) => {
+        setNotice(res.message)
+        return load()
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Could not notify police'))
   }
 
   async function handleResolve(id: string) {
@@ -132,6 +142,11 @@ export default function Alerts() {
       {error && (
         <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3 mb-6">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
+        </div>
+      )}
+      {notice && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm px-4 py-3 mb-6">
+          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> <span>{notice}</span>
         </div>
       )}
 

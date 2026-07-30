@@ -195,7 +195,7 @@ function InviteModal({ open, onClose, onInvited }: { open: boolean; onClose: () 
             </div>
             <div>
               <label className="label">Phone</label>
-              <input required className="input" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
+              <input required className="input" placeholder="08012345678" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

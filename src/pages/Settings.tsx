@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react'
-import { changePassword, getEstate, updateEstateSettings } from '@/lib/api'
+import { AlertCircle, CheckCircle2, Plus, Trash2, Pencil, X } from 'lucide-react'
+import { changePassword, getEstate, updateEstateSettings, updateMyProfile, updateEstateProfile } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
@@ -8,6 +8,164 @@ import { Badge } from '@/components/ui/Badge'
 
 export default function Settings() {
   const { user } = useAuth()
+
+  return (
+    <div className="max-w-xl space-y-6">
+      <PageHeader title="Settings" subtitle="Manage your profile and account security." />
+
+      <ProfileCard />
+
+      <PasswordCard />
+
+      {(user?.role === 'admin' || user?.role === 'super_admin') && <EstateSettingsCard estateId={user.estate_id ?? undefined} />}
+    </div>
+  )
+}
+
+function ProfileCard() {
+  const { user, setUser } = useAuth()
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(user?.name || '')
+  const [phone, setPhone] = useState(user?.phone || '')
+  const [email, setEmail] = useState(user?.email || '')
+  const [apartment, setApartment] = useState(user?.apartment || '')
+  const [estateName, setEstateName] = useState(user?.estate_name || '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  function startEdit() {
+    setName(user?.name || '')
+    setPhone(user?.phone || '')
+    setEmail(user?.email || '')
+    setApartment(user?.apartment || '')
+    setEstateName(user?.estate_name || '')
+    setError('')
+    setSuccess(false)
+    setEditing(true)
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!user) return
+    setError('')
+    setSuccess(false)
+    setLoading(true)
+    try {
+      const updated = await updateMyProfile({ name, phone, email, apartment: apartment || undefined })
+      let mergedUser = updated
+
+      // Estate name is a separate resource (admin-only), saved alongside
+      // the profile form for convenience but hitting its own endpoint.
+      if (isAdmin && user.estate_id && estateName.trim() && estateName.trim() !== user.estate_name) {
+        await updateEstateProfile(user.estate_id, { name: estateName.trim() })
+        mergedUser = { ...mergedUser, estate_name: estateName.trim() }
+      }
+
+      setUser(mergedUser)
+      setSuccess(true)
+      setEditing(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save changes')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display font-semibold text-midnight-900">Profile</h3>
+        {!editing && (
+          <button onClick={startEdit} className="btn-outline text-xs px-3 py-1.5">
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3 mb-4">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
+        </div>
+      )}
+      {success && !editing && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm px-4 py-3 mb-4">
+          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> <span>Profile updated.</span>
+        </div>
+      )}
+
+      {editing ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="label">Full name</label>
+            <input required minLength={2} className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Email</label>
+              <input type="email" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Phone</label>
+              <input required className="input" placeholder="08012345678" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Apartment / house number</label>
+            <input className="input" placeholder="Optional" value={apartment} onChange={(e) => setApartment(e.target.value)} />
+          </div>
+          {isAdmin && (
+            <div>
+              <label className="label">Estate name</label>
+              <input minLength={2} className="input" value={estateName} onChange={(e) => setEstateName(e.target.value)} />
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? <Spinner className="h-4 w-4" /> : 'Save changes'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="btn-outline">
+              <X className="h-4 w-4" /> Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <dl className="grid grid-cols-2 gap-y-3 text-sm">
+          <dt className="text-midnight-400">Name</dt>
+          <dd className="text-midnight-800 font-medium">{user?.name}</dd>
+          <dt className="text-midnight-400">Email</dt>
+          <dd className="text-midnight-800 font-medium">{user?.email}</dd>
+          <dt className="text-midnight-400">Phone</dt>
+          <dd className="text-midnight-800 font-medium">{user?.phone}</dd>
+          {user?.apartment && (
+            <>
+              <dt className="text-midnight-400">Apartment</dt>
+              <dd className="text-midnight-800 font-medium">{user.apartment}</dd>
+            </>
+          )}
+          <dt className="text-midnight-400">Role</dt>
+          <dd><Badge tone="royal">{user?.role.replace('_', ' ')}</Badge></dd>
+          <dt className="text-midnight-400">Estate</dt>
+          <dd className="text-midnight-800 font-medium">{user?.estate_name || '—'}</dd>
+        </dl>
+      )}
+
+      {!editing && user?.badges && user.badges.length > 0 && (
+        <div className="mt-5 pt-5 border-t border-midnight-50">
+          <p className="text-xs uppercase tracking-wide text-midnight-400 font-semibold mb-2">Badges earned</p>
+          <div className="flex flex-wrap gap-2">
+            {user.badges.map((b, i) => (
+              <Badge key={i} tone="alert">{b.badge}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PasswordCard() {
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,63 +190,31 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
-      <PageHeader title="Settings" subtitle="Manage your profile and account security." />
-
-      <div className="card p-6">
-        <h3 className="font-display font-semibold text-midnight-900 mb-4">Profile</h3>
-        <dl className="grid grid-cols-2 gap-y-3 text-sm">
-          <dt className="text-midnight-400">Name</dt>
-          <dd className="text-midnight-800 font-medium">{user?.name}</dd>
-          <dt className="text-midnight-400">Email</dt>
-          <dd className="text-midnight-800 font-medium">{user?.email}</dd>
-          <dt className="text-midnight-400">Phone</dt>
-          <dd className="text-midnight-800 font-medium">{user?.phone}</dd>
-          <dt className="text-midnight-400">Role</dt>
-          <dd><Badge tone="royal">{user?.role.replace('_', ' ')}</Badge></dd>
-          <dt className="text-midnight-400">Estate</dt>
-          <dd className="text-midnight-800 font-medium">{user?.estate_name || '—'}</dd>
-        </dl>
-        {user?.badges && user.badges.length > 0 && (
-          <div className="mt-5 pt-5 border-t border-midnight-50">
-            <p className="text-xs uppercase tracking-wide text-midnight-400 font-semibold mb-2">Badges earned</p>
-            <div className="flex flex-wrap gap-2">
-              {user.badges.map((b, i) => (
-                <Badge key={i} tone="alert">{b.badge}</Badge>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="card p-6">
-        <h3 className="font-display font-semibold text-midnight-900 mb-4">Change password</h3>
-        {error && (
-          <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3 mb-4">
-            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
-          </div>
-        )}
-        {success && (
-          <div className="flex items-start gap-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm px-4 py-3 mb-4">
-            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> <span>Password updated.</span>
-          </div>
-        )}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="label">Current password</label>
-            <input type="password" required className="input" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
-          </div>
-          <div>
-            <label className="label">New password</label>
-            <input type="password" required minLength={6} className="input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-          </div>
-          <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? <Spinner className="h-4 w-4" /> : 'Update password'}
-          </button>
-        </form>
-      </div>
-
-      {(user?.role === 'admin' || user?.role === 'super_admin') && <EstateSettingsCard estateId={user.estate_id ?? undefined} />}
+    <div className="card p-6">
+      <h3 className="font-display font-semibold text-midnight-900 mb-4">Change password</h3>
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3 mb-4">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div className="flex items-start gap-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm px-4 py-3 mb-4">
+          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> <span>Password updated.</span>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="label">Current password</label>
+          <input type="password" required className="input" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">New password</label>
+          <input type="password" required minLength={6} className="input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+        </div>
+        <button type="submit" disabled={loading} className="btn-primary">
+          {loading ? <Spinner className="h-4 w-4" /> : 'Update password'}
+        </button>
+      </form>
     </div>
   )
 }
