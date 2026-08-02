@@ -324,7 +324,7 @@ export default function Landing() {
       <footer className="border-t border-midnight-100 py-10">
         <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <Logo size="md" />
-          <p className="text-xs text-midnight-300">© {new Date().getFullYear()} Nexhood. Protecting homes, connecting neighbors, building safer communities — together.</p>
+          <p className="text-xs text-midnight-300">© {new Date().getFullYear()} Nexhood. Protecting homes, connecting neighbors, building safer communities together.</p>
         </div>
       </footer>
     </div>
