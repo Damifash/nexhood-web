@@ -46,7 +46,7 @@ const FEATURES = [
   {
     icon: BarChart3,
     title: 'Analytics admins can act on',
-    body: 'Incident trends, visitor volume, and engagement — visualized so estate managers can spot patterns before they become problems.',
+    body: 'Incident trends, visitor volume, and engagement visualized so estate managers can spot patterns before they become problems.',
   },
 ]
 
@@ -54,7 +54,7 @@ const PERSONAS = [
   { name: 'Resident', desc: 'Report, request passes for guests, and get instant alerts on anything nearby.' },
   { name: 'Guard', desc: 'Validate visitor passes, acknowledge alerts, and get recognized for the job you do.' },
   { name: 'Admin', desc: 'Oversee incidents, manage residents, and track your estate’s security in one dashboard.' },
-  { name: 'Police', desc: 'Receive escalated alerts with full context — location, severity, and reporter.' },
+  { name: 'Police', desc: 'Receive escalated alerts with full context location, severity, and reporter.' },
 ]
 
 export default function Landing() {
@@ -109,7 +109,7 @@ export default function Landing() {
             </h1>
             <p className="mt-6 text-lg text-midnight-500 max-w-lg leading-relaxed">
               Nexhood turns neighbors, guards, admins, and police into one connected support
-              system — trading fear-driven, isolated security for a community you can actually rely on.
+              system trading fear-driven, isolated security for a community you can actually rely on.
             </p>
             <div className="mt-9 flex flex-wrap gap-4">
               <Link to="/register" className="btn-primary text-base px-7 py-3">
@@ -120,7 +120,7 @@ export default function Landing() {
               </Link>
             </div>
             <div className="mt-12 flex items-center gap-8 text-sm text-midnight-400">
-              <div><span className="font-display text-2xl font-semibold text-midnight-900">15,000+</span><br />residents targeted, Yr 1</div>
+              <div><span className="font-display text-2xl font-semibold text-midnight-900">10,000+</span><br />residents targeted, Yr 1</div>
               <div className="w-px h-10 bg-midnight-100" />
               <div><span className="font-display text-2xl font-semibold text-midnight-900">30%</span><br />faster incident response</div>
             </div>
@@ -164,7 +164,7 @@ export default function Landing() {
             "Nexhood exists to transform neighborhood security from a fear-driven, isolated system
             into a collaborative community experience built on trust, participation, and mutual support."
           </p>
-          <p className="mt-6 text-steel-400 text-sm uppercase tracking-widest">Security as social infrastructure — not surveillance</p>
+          <p className="mt-6 text-steel-400 text-sm uppercase tracking-widest">Security as social infrastructure not surveillance</p>
         </div>
       </section>
 
@@ -181,12 +181,12 @@ export default function Landing() {
           <div className="order-1 lg:order-2">
             <span className="text-alert font-semibold text-sm tracking-wide">On the ground, not just in the app</span>
             <h2 className="font-display text-3xl font-semibold mt-2 text-midnight-900">
-              Built inside real Abuja estates — not a lab.
+              Built inside real Abuja estates not a lab.
             </h2>
             <p className="text-midnight-500 mt-4 leading-relaxed">
               Nexhood is designed with the estates that pilot it: signage residents actually see at the gate,
               guards who already know the drill, and workflows shaped by how Nigerian neighborhoods really
-              run — not a generic template dropped in from somewhere else.
+              run not a generic template dropped in from somewhere else.
             </p>
             <ul className="mt-6 space-y-3 text-sm text-midnight-600">
               <li className="flex items-start gap-2.5">
@@ -199,7 +199,7 @@ export default function Landing() {
               </li>
               <li className="flex items-start gap-2.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-royal mt-2 shrink-0" />
-                English and Hausa now, Yoruba and Igbo coming
+                Nexhood AI Guard coming soon, QR access, AI cameras, Voice assitance, and automatic gate control
               </li>
             </ul>
           </div>
@@ -265,7 +265,7 @@ export default function Landing() {
           </h2>
           <p className="text-steel-300 mt-4 max-w-lg leading-relaxed">
             Critical alerts reach every guard and admin on shift at once, with a direct line to police
-            escalation built in — so response stays fast without anyone feeling like they're under watch.
+            escalation built in so response stays fast without anyone feeling like they're under watch.
           </p>
         </div>
       </section>
@@ -282,7 +282,7 @@ export default function Landing() {
             </h2>
             <p className="text-midnight-500 mt-4 leading-relaxed">
               Underpaid guards and overstretched police are the backbone of estate security. Nexhood's
-              welfare fund lets residents contribute directly — with every donation building trust, one
+              welfare fund lets residents contribute directly with every donation building trust, one
               estate at a time.
             </p>
             <Link to="/register" className="btn-primary mt-8 w-fit">
@@ -293,7 +293,7 @@ export default function Landing() {
             <ShieldCheck className="h-10 w-10 mb-5" />
             <p className="font-display text-xl font-semibold">Our promise</p>
             <p className="text-royal-100/90 mt-3 text-sm leading-relaxed">
-              Protection without fear, access without chaos, and unity without rigidity — for every home
+              Protection without fear, access without chaos, and unity without rigidity for every home
               in the neighborhood.
             </p>
           </div>
