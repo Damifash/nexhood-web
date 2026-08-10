@@ -111,7 +111,7 @@ export default function Landing() {
               Security is stronger<br /> when it is <span className="text-alert">shared.</span>
             </h1>
             <p className="mt-6 text-lg text-midnight-500 max-w-lg leading-relaxed">
-              Nexhood turns neighbors, guards, admins, and police into one connected support
+              Nexhood turns neighbors, guards, and police into one connected support
               system trading fear-driven, isolated security for a community you can actually rely on.
             </p>
             <div className="mt-9 flex flex-wrap gap-4">

@@ -90,7 +90,7 @@ export default function Login() {
         </Link>
       </p>
       <p className="text-xs text-midnight-300 mt-3 text-center">
-        Guards, admins and police are invited by their estate admin.
+        Guards, residents and police are invited by the estate admin.
       </p>
     </AuthLayout>
   )
