@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ShieldCheck,
@@ -14,9 +14,14 @@ import {
   Bell,
   Trophy,
   Zap,
+  Mail,
+  Send,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react'
 import { Logo, ShieldMark } from '@/components/Logo'
-
+import { submitContact } from '@/lib/api'
+import { Spinner } from '@/components/ui/Spinner'
 const FEATURES = [
   {
     icon: QrCode,
@@ -49,17 +54,14 @@ const FEATURES = [
     body: 'Incident trends, visitor volume, and engagement visualized so estate managers can spot patterns before they become problems.',
   },
 ]
-
 const PERSONAS = [
   { name: 'Resident', desc: 'Report, request passes for guests, and get instant alerts on anything nearby.' },
   { name: 'Guard', desc: 'Validate visitor passes, acknowledge alerts, and get recognized for the job you do.' },
   { name: 'Admin', desc: 'Oversee incidents, manage residents, and track your estate’s security in one dashboard.' },
   { name: 'Police', desc: 'Receive escalated alerts with full context location, severity, and reporter.' },
 ]
-
 export default function Landing() {
   const [navOpen, setNavOpen] = useState(false)
-
   return (
     <div className="bg-warm text-midnight-900">
       {/* Nav */}
@@ -70,6 +72,7 @@ export default function Landing() {
             <a href="#features" className="hover:text-royal transition">Features</a>
             <a href="#how" className="hover:text-royal transition">How it works</a>
             <a href="#community" className="hover:text-royal transition">Community</a>
+            <a href="#contact" className="hover:text-royal transition">Contact</a>
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <Link to="/login" className="btn-ghost">Log in</Link>
@@ -84,6 +87,7 @@ export default function Landing() {
             <a href="#features" onClick={() => setNavOpen(false)}>Features</a>
             <a href="#how" onClick={() => setNavOpen(false)}>How it works</a>
             <a href="#community" onClick={() => setNavOpen(false)}>Community</a>
+            <a href="#contact" onClick={() => setNavOpen(false)}>Contact</a>
             <div className="flex gap-3 pt-2">
               <Link to="/login" className="btn-outline flex-1">Log in</Link>
               <Link to="/register" className="btn-primary flex-1">Get started</Link>
@@ -91,7 +95,6 @@ export default function Landing() {
           </div>
         )}
       </header>
-
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div
@@ -125,7 +128,6 @@ export default function Landing() {
               <div><span className="font-display text-2xl font-semibold text-midnight-900">30%</span><br />faster incident response</div>
             </div>
           </div>
-
           <div className="relative">
             <div className="rounded-[2rem] overflow-hidden shadow-2xl relative aspect-[4/5] lg:aspect-[3/4]">
               <img
@@ -155,7 +157,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Brand belief */}
       <section className="bg-midnight-900 text-warm py-20">
         <div className="max-w-4xl mx-auto px-6 text-center">
@@ -167,7 +168,6 @@ export default function Landing() {
           <p className="mt-6 text-steel-400 text-sm uppercase tracking-widest">Security as social infrastructure not surveillance</p>
         </div>
       </section>
-
       {/* Real estates, real signage */}
       <section className="max-w-6xl mx-auto px-6 py-24">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -205,7 +205,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Features */}
       <section id="features" className="max-w-6xl mx-auto px-6 py-24">
         <div className="max-w-xl mb-14">
@@ -226,7 +225,6 @@ export default function Landing() {
           ))}
         </div>
       </section>
-
       {/* How it works / personas */}
       <section id="how" className="bg-midnight-50/60 py-24">
         <div className="max-w-6xl mx-auto px-6">
@@ -247,7 +245,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Rapid response, used sparingly and heavily toned down */}
       <section className="relative overflow-hidden">
         <img
@@ -269,7 +266,6 @@ export default function Landing() {
           </p>
         </div>
       </section>
-
       {/* Community / welfare */}
       <section id="community" className="max-w-6xl mx-auto px-6 py-24">
         <div className="card overflow-hidden grid lg:grid-cols-2">
@@ -299,7 +295,25 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
+      {/* Contact */}
+      <section id="contact" className="max-w-6xl mx-auto px-6 py-24">
+        <div className="grid lg:grid-cols-2 gap-12 items-start">
+          <div>
+            <span className="text-alert font-semibold text-sm tracking-wide">Get in touch</span>
+            <h2 className="font-display text-3xl font-semibold mt-2 text-midnight-900">
+              Questions, feedback, or want to pilot Nexhood at your estate?
+            </h2>
+            <p className="text-midnight-500 mt-4 leading-relaxed max-w-md">
+              Whether you're an estate chairman exploring Nexhood for your community, or a resident with feedback
+              on the app, we read every message and respond directly.
+            </p>
+            <a href="mailto:fasoro@nexhoodapp.com" className="mt-6 inline-flex items-center gap-2 text-royal font-medium hover:underline">
+              <Mail className="h-4 w-4" /> fasoro@nexhoodapp.com
+            </a>
+          </div>
+          <ContactForm />
+        </div>
+      </section>
       {/* CTA */}
       <section className="max-w-6xl mx-auto px-6 pb-24">
         <div className="rounded-[2rem] bg-midnight-900 text-warm px-8 sm:px-16 py-16 text-center relative overflow-hidden">
@@ -319,14 +333,73 @@ export default function Landing() {
           </Link>
         </div>
       </section>
-
       {/* Footer */}
       <footer className="border-t border-midnight-100 py-10">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <Logo size="md" />
           <p className="text-xs text-midnight-300">© {new Date().getFullYear()} Nexhood. Protecting homes, connecting neighbors, building safer communities together.</p>
         </div>
       </footer>
     </div>
+  )
+}
+
+function ContactForm() {
+  const [form, setForm] = useState({ name: '', email: '', message: '' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [sent, setSent] = useState(false)
+
+  function update<K extends keyof typeof form>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      await submitContact(form)
+      setSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send your message')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (sent) {
+    return (
+      <div className="card p-8 flex flex-col items-center text-center">
+        <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-3" />
+        <p className="font-display font-semibold text-midnight-900">Message sent.</p>
+        <p className="text-sm text-midnight-500 mt-1">We'll get back to you at {form.email} soon.</p>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="card p-6 sm:p-8 space-y-4">
+      {error && (
+        <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
+        </div>
+      )}
+      <div>
+        <label className="label">Name</label>
+        <input required minLength={2} className="input" placeholder="Your name" value={form.name} onChange={(e) => update('name', e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Email</label>
+        <input type="email" required className="input" placeholder="you@example.com" value={form.email} onChange={(e) => update('email', e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Message</label>
+        <textarea required minLength={10} rows={4} className="input" placeholder="Tell us what's on your mind, a question, feedback, or interest in piloting Nexhood at your estate." value={form.message} onChange={(e) => update('message', e.target.value)} />
+      </div>
+      <button type="submit" disabled={loading} className="btn-primary w-full">
+        {loading ? <Spinner className="h-4 w-4" /> : <>Send message <Send className="h-4 w-4" /></>}
+      </button>
+    </form>
   )
 }

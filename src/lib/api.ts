@@ -116,6 +116,15 @@ export async function forgotPassword(email: string) {
   }
 }
 
+export async function submitContact(payload: { name: string; email: string; message: string }) {
+  try {
+    const { data } = await api.post('/api/contact', payload)
+    return data as { message: string; id: string }
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not send your message — please try again'))
+  }
+}
+
 export async function resetPassword(token: string, new_password: string) {
   try {
     const { data } = await api.post('/api/auth/reset-password', { token, new_password })
