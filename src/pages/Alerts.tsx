@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Siren, ShieldAlert, PhoneCall, Phone, AlertCircle, CheckCircle2, X } from 'lucide-react'
-import { acknowledgeAlert, createAlert, listAlerts, notifyPolice, resolveAlert, getEstate } from '@/lib/api'
+import { acknowledgeAlert, createAlert, listAlerts, notifyPolice, resolveAlert, getEstate, getEstateContacts } from '@/lib/api'
 import type { Alert } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -16,6 +16,20 @@ const TYPES = [
   { value: 'general', label: 'General' },
 ]
 
+// Which call buttons each alert type deserves. Showing "Call police" on
+// every alert taught people to ignore it — the action should match the
+// situation: crime-related alerts point at police, fire/medical point at
+// the estate's emergency contacts, and every urgent type offers the gate
+// guard, who is closest and fastest. General alerts get no call button.
+const CALL_ACTIONS: Record<string, Array<'police' | 'guard' | 'emergency'>> = {
+  panic: ['police', 'guard'],
+  emergency: ['police', 'guard'],
+  security_breach: ['police', 'guard'],
+  fire: ['emergency', 'guard'],
+  medical: ['emergency', 'guard'],
+  general: [],
+}
+
 export default function Alerts() {
   const { user } = useAuth()
   const [alerts, setAlerts] = useState<Alert[]>([])
@@ -27,6 +41,7 @@ export default function Alerts() {
   const [notice, setNotice] = useState('')
   const [policePhone, setPolicePhone] = useState('')
   const [contacts, setContacts] = useState<{ name: string; phone?: string }[]>([])
+  const [guards, setGuards] = useState<{ id: string; name?: string; phone?: string }[]>([])
   const canManage = user?.role === 'guard' || user?.role === 'admin' || user?.role === 'super_admin'
 
   async function load() {
@@ -55,6 +70,11 @@ export default function Alerts() {
         setPolicePhone((estate.settings?.police_phone as string) || '')
         setContacts((estate.settings?.emergencyContacts as { name: string; phone?: string }[]) || [])
       })
+      .catch(() => {})
+    // Guard/admin phone directory — so a resident can ring the gate guard
+    // directly instead of only having "police" as an option.
+    getEstateContacts()
+      .then((c) => setGuards(c.guards.filter((g) => g.phone)))
       .catch(() => {})
   }, [user?.estate_id])
 
@@ -128,9 +148,19 @@ export default function Alerts() {
         }
       />
 
-      {canManage && contacts.some((c) => c.phone) && (
+      {/* Quick-dial strip — visible to EVERY role, not just management.
+          A resident in trouble should be two taps from the gate guard's
+          phone. Guards come first (closest responder), then the estate's
+          configured emergency contacts. Entries without a phone number
+          are simply not rendered. */}
+      {(guards.length > 0 || contacts.some((c) => c.phone)) && (
         <div className="card p-4 mb-6 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-midnight-400 mr-1">Emergency contacts:</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-midnight-400 mr-1">Quick contacts:</span>
+          {guards.map((g) => (
+            <a key={g.id} href={`tel:${g.phone}`} className="btn-outline text-xs px-3 py-1.5">
+              <Phone className="h-3.5 w-3.5" /> {g.name ? `${g.name} (Guard)` : 'Gate guard'}
+            </a>
+          ))}
           {contacts.filter((c) => c.phone).map((c, i) => (
             <a key={i} href={`tel:${c.phone}`} className="btn-outline text-xs px-3 py-1.5">
               <Phone className="h-3.5 w-3.5" /> {c.name || 'Call'}
@@ -175,6 +205,11 @@ export default function Alerts() {
           <ul className="divide-y divide-midnight-50">
             {alerts.map((a) => {
               const acknowledgedByMe = a.acknowledged_by.some((ack) => ack.user_id === user?.id)
+              // The right call-to-action depends on WHAT the alert is, not
+              // just how urgent it is — see CALL_ACTIONS above.
+              const actions = a.status !== 'resolved' ? (CALL_ACTIONS[a.type] ?? []) : []
+              const firstGuard = guards[0]
+              const firstContact = contacts.find((c) => c.phone)
               return (
                 <li key={a.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -191,18 +226,28 @@ export default function Alerts() {
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0 flex-wrap">
-                    {/* Available to everyone, not just guards/admins — a
-                        resident who just raised a critical alert needs to
-                        be able to call police themselves, immediately,
-                        without waiting on staff. Opens the dialer directly
-                        instead of only sending a silent email. */}
-                    {a.status !== 'resolved' && (a.priority === 'critical' || a.priority === 'high') && policePhone && (
+                    {/* Call buttons are chosen by alert TYPE (see CALL_ACTIONS):
+                        crime → police, fire/medical → emergency contact,
+                        and every urgent type also offers the gate guard.
+                        All available to every role — a resident who just
+                        raised the alert needs these the most. */}
+                    {actions.includes('police') && policePhone && (
                       <a
                         href={`tel:${policePhone}`}
                         onClick={() => handlePoliceCall(a.id)}
                         className="btn-alert text-xs px-3 py-1.5"
                       >
                         <PhoneCall className="h-3.5 w-3.5" /> {a.police_status === 'notified' ? 'Call police again' : 'Call police'}
+                      </a>
+                    )}
+                    {actions.includes('emergency') && firstContact && (
+                      <a href={`tel:${firstContact.phone}`} className="btn-alert text-xs px-3 py-1.5">
+                        <PhoneCall className="h-3.5 w-3.5" /> Call {firstContact.name || 'emergency contact'}
+                      </a>
+                    )}
+                    {actions.includes('guard') && firstGuard && (
+                      <a href={`tel:${firstGuard.phone}`} className="btn-outline text-xs px-3 py-1.5">
+                        <Phone className="h-3.5 w-3.5" /> Call guard{firstGuard.name ? ` (${firstGuard.name})` : ''}
                       </a>
                     )}
                     {canManage && (

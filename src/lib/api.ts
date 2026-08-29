@@ -154,6 +154,21 @@ export async function getEstate(id: string) {
   return data.estate as Estate
 }
 
+export interface EstateContacts {
+  estate_name?: string
+  emergency_contacts: { name?: string; phone?: string; email?: string }[]
+  guards: { id: string; name?: string; phone?: string }[]
+  admins: { id: string; name?: string; phone?: string }[]
+}
+
+// Tap-to-call directory for the caller's own estate: guards, admins and
+// the configured emergency contacts. Available to every role — the whole
+// point is that a resident can ring the gate guard directly.
+export async function getEstateContacts() {
+  const { data } = await api.get('/api/estates/contacts')
+  return data as EstateContacts
+}
+
 export async function updateEstateSettings(id: string, payload: Record<string, unknown>) {
   const { data } = await api.patch(`/api/estates/${id}/settings`, payload)
   return data.estate as Estate
