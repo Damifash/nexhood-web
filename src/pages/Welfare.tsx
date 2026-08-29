@@ -85,7 +85,7 @@ export default function Welfare() {
         <CreateCampaignModal
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-          onCreated={(c) => { setCampaigns((prev) => [c, ...prev]); setCreateOpen(false) }}
+          onCreated={(c) => { setCampaigns((prev) => [{ total_raised: 0, donor_count: 0, ...c }, ...prev]); setCreateOpen(false) }}
         />
       )}
     </div>
@@ -93,7 +93,13 @@ export default function Welfare() {
 }
 
 function CampaignCard({ campaign, onDonate }: { campaign: WelfareCampaign; onDonate: () => void }) {
-  const pct = campaign.goal_amount ? Math.min(100, Math.round((campaign.total_raised / campaign.goal_amount) * 100)) : null
+  // A freshly created campaign comes back without the computed
+  // total_raised / donor_count fields (they're added by the list
+  // aggregation) — calling .toLocaleString() on undefined crashed the
+  // whole page to blank right after "Create campaign". Default to 0.
+  const raised = campaign.total_raised ?? 0
+  const donors = campaign.donor_count ?? 0
+  const pct = campaign.goal_amount ? Math.min(100, Math.round((raised / campaign.goal_amount) * 100)) : null
   return (
     <div className="card p-6">
       <div className="flex items-start justify-between gap-4">
@@ -112,7 +118,7 @@ function CampaignCard({ campaign, onDonate }: { campaign: WelfareCampaign; onDon
 
       <div className="mt-4">
         <div className="flex items-center justify-between text-sm mb-1">
-          <span className="font-semibold text-midnight-800">₦{campaign.total_raised.toLocaleString()} raised</span>
+          <span className="font-semibold text-midnight-800">₦{raised.toLocaleString()} raised</span>
           {campaign.goal_amount && <span className="text-midnight-400">of ₦{campaign.goal_amount.toLocaleString()} goal</span>}
         </div>
         {pct !== null && (
@@ -121,7 +127,7 @@ function CampaignCard({ campaign, onDonate }: { campaign: WelfareCampaign; onDon
           </div>
         )}
         <p className="text-xs text-midnight-400 mt-1">
-          {campaign.donor_count} {campaign.donor_count === 1 ? 'donor' : 'donors'} so far
+          {donors} {donors === 1 ? 'donor' : 'donors'} so far
         </p>
       </div>
     </div>

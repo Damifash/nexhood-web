@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Siren, ShieldAlert, PhoneCall, Phone, AlertCircle, CheckCircle2, X } from 'lucide-react'
+import { Siren, ShieldAlert, PhoneCall, Phone, AlertCircle, CheckCircle2, X, Mail } from 'lucide-react'
 import { acknowledgeAlert, createAlert, listAlerts, notifyPolice, resolveAlert, getEstate, getEstateContacts } from '@/lib/api'
 import type { Alert } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
@@ -245,13 +245,25 @@ export default function Alerts() {
                         <PhoneCall className="h-3.5 w-3.5" /> Call {firstContact.name || 'emergency contact'}
                       </a>
                     )}
-                    {actions.includes('guard') && firstGuard && (
+                    {/* Not shown to guards — they ARE the guard. They get
+                        police + the sender's number instead. */}
+                    {actions.includes('guard') && firstGuard && user?.role !== 'guard' && (
                       <a href={`tel:${firstGuard.phone}`} className="btn-outline text-xs px-3 py-1.5">
                         <Phone className="h-3.5 w-3.5" /> Call guard{firstGuard.name ? ` (${firstGuard.name})` : ''}
                       </a>
                     )}
                     {canManage && (
                       <>
+                        {/* Email notification as its own action — the tel:
+                            call button only fires the email as a side
+                            effect of tapping, which does nothing on a
+                            desktop gatehouse computer. This makes the
+                            email path explicit and clickable anywhere. */}
+                        {actions.includes('police') && (
+                          <button onClick={() => handlePoliceCall(a.id)} className="btn-outline text-xs px-3 py-1.5">
+                            <Mail className="h-3.5 w-3.5" /> {a.police_status === 'notified' ? 'Email police again' : 'Email police'}
+                          </button>
+                        )}
                         {a.sender_phone && (
                           <a href={`tel:${a.sender_phone}`} className="btn-outline text-xs px-3 py-1.5">
                             <Phone className="h-3.5 w-3.5" /> Call {a.sender_name || 'sender'}

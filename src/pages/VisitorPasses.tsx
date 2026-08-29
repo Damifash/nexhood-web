@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner, EmptyState } from '@/components/ui/Spinner'
 import { Badge, statusTone } from '@/components/ui/Badge'
+import { QrScanner } from '@/components/QrScanner'
 
 function base64ToPngFile(base64: string, filename: string): File {
   const bytes = atob(base64)
@@ -259,13 +260,16 @@ function ValidatePanel({ onValidated }: { onValidated: () => void }) {
   const [code, setCode] = useState('')
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [scanning, setScanning] = useState(false)
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  // Shared by both entry paths: typing a code and scanning one. The manual
+  // form is untouched and remains the fallback whenever the camera isn't
+  // available (desktop gatehouse, denied permission, dead torch at night).
+  async function runValidation(raw: string) {
     setLoading(true)
     setResult(null)
     try {
-      const pass = await validateVisitorPass(code.trim().toUpperCase())
+      const pass = await validateVisitorPass(raw.trim().toUpperCase())
       // Which gate this happened at isn't useful to show back to the guard —
       // they're standing there, they know. What they actually need is where
       // the visitor is headed, so the destination flat/house leads here.
@@ -280,24 +284,50 @@ function ValidatePanel({ onValidated }: { onValidated: () => void }) {
     }
   }
 
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    await runValidation(code)
+  }
+
+  function handleScan(scannedCode: string) {
+    setScanning(false)
+    runValidation(scannedCode)
+  }
+
   return (
     <div className="card p-6 mb-6 bg-midnight-900 text-warm">
       <div className="flex items-center gap-2 mb-4">
         <ScanLine className="h-5 w-5 text-alert" />
         <h3 className="font-display font-semibold">Validate visitor code</h3>
       </div>
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
-        <input
-          className="input flex-1 bg-white/5 border-white/10 text-warm placeholder:text-steel-400"
-          placeholder="Enter visitor code (e.g. A1B2)"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          required
-        />
-        <button className="btn-alert" disabled={loading}>
-          {loading ? <Spinner className="h-4 w-4" /> : 'Validate'}
-        </button>
-      </form>
+      {scanning ? (
+        <QrScanner onScan={handleScan} onClose={() => setScanning(false)} />
+      ) : (
+        <>
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+            <input
+              className="input flex-1 bg-white/5 border-white/10 text-warm placeholder:text-steel-400"
+              placeholder="Enter visitor code (e.g. A1B2)"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+            />
+            <button className="btn-alert" disabled={loading}>
+              {loading ? <Spinner className="h-4 w-4" /> : 'Validate'}
+            </button>
+          </form>
+          {/* Scanning is the fast path at a busy gate; typing stays as the
+              fallback for desktops, denied camera permission, or a visitor
+              whose phone is dead and who only has the code. */}
+          <button
+            type="button"
+            onClick={() => { setResult(null); setScanning(true) }}
+            className="btn-outline w-full mt-3 border-white/20 text-warm hover:bg-white/10"
+          >
+            <QrCode className="h-4 w-4" /> Scan QR code instead
+          </button>
+        </>
+      )}
       {result && (
         <div className={`flex items-center gap-2 mt-4 text-sm ${result.type === 'success' ? 'text-emerald-300' : 'text-alert-300'}`}>
           {result.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <XIcon className="h-4 w-4" />}

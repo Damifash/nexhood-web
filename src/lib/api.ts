@@ -213,6 +213,7 @@ export interface IncidentPayload {
   severity: string
   title: string
   description: string
+  images?: string[]
 }
 
 export async function createIncident(payload: IncidentPayload) {
