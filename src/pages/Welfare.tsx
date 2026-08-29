@@ -85,7 +85,7 @@ export default function Welfare() {
         <CreateCampaignModal
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-          onCreated={(c) => { setCampaigns((prev) => [{ total_raised: 0, donor_count: 0, ...c }, ...prev]); setCreateOpen(false) }}
+          onCreated={(c) => { setCampaigns((prev) => [{ ...c, total_raised: c.total_raised ?? 0, donor_count: c.donor_count ?? 0 }, ...prev]); setCreateOpen(false) }}
         />
       )}
     </div>
