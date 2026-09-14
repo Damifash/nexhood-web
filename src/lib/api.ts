@@ -159,6 +159,27 @@ export async function updateEstateSettings(id: string, payload: Record<string, u
   return data.estate as Estate
 }
 
+// Tap-to-call directory for the caller's own estate — emergency contacts
+// plus every active guard/admin (name + phone). Matches GET
+// /api/estates/contacts on the backend.
+export interface EstateContact {
+  id: string
+  name?: string
+  phone?: string
+}
+
+export interface EstateContactsResponse {
+  estate_name: string | null
+  emergency_contacts: { name?: string; phone?: string }[]
+  guards: EstateContact[]
+  admins: EstateContact[]
+}
+
+export async function getEstateContacts() {
+  const { data } = await api.get('/api/estates/contacts')
+  return data as EstateContactsResponse
+}
+
 // ---------- Visitor Passes ----------
 export interface VisitorPassPayload {
   visitor_name: string

@@ -55,3 +55,17 @@
 ::-webkit-scrollbar-track {
   background-color: transparent;
 }
+
+/* iOS Safari auto-zooms the whole page in when a tapped form field's
+   computed font-size is under 16px, and often doesn't zoom back out —
+   this is what makes the site look "zoomed in" on a phone. .input uses
+   text-sm (14px), so every input/select/textarea on mobile was tripping
+   this. Bumping just the mobile font-size to 16px avoids the zoom without
+   changing how anything looks on desktop. */
+@media (max-width: 640px) {
+  input.input,
+  select.input,
+  textarea.input {
+    font-size: 16px;
+  }
+}
