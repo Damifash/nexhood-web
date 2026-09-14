@@ -37,7 +37,7 @@ export default function Register() {
   }
 
   return (
-    <AuthLayout title="Join your estate" subtitle="The first person from an estate becomes its admin everyone else joins under them.">
+    <AuthLayout title="Join your estate" subtitle="The first person from an estate becomes its admin — everyone else joins under them.">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3">
@@ -47,7 +47,7 @@ export default function Register() {
         )}
         <div>
           <label className="label" htmlFor="name">Full name</label>
-          <input id="name" required className="input" placeholder="Rita Michaels" value={form.name} onChange={(e) => update('name', e.target.value)} />
+          <input id="name" required className="input" placeholder="Rita Adebayo" value={form.name} onChange={(e) => update('name', e.target.value)} />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -62,7 +62,10 @@ export default function Register() {
         <div>
           <label className="label" htmlFor="estate">Estate name</label>
           <input id="estate" required className="input" placeholder="Maraba Gardens Estate" value={form.estate_id} onChange={(e) => update('estate_id', e.target.value)} />
-          <p className="text-xs text-midnight-300 mt-1">If it doesn't exist yet, we'll create it and you'll be its admin.</p>
+          <p className="text-xs text-midnight-300 mt-1">
+            New estate? We'll create it and you'll be its admin. Already have an estate on Nexhood? Ask your
+            estate admin for an invite instead — this form can't join an existing estate.
+          </p>
         </div>
         <div>
           <label className="label" htmlFor="password">Password</label>
