@@ -154,21 +154,6 @@ export async function getEstate(id: string) {
   return data.estate as Estate
 }
 
-export interface EstateContacts {
-  estate_name?: string
-  emergency_contacts: { name?: string; phone?: string; email?: string }[]
-  guards: { id: string; name?: string; phone?: string }[]
-  admins: { id: string; name?: string; phone?: string }[]
-}
-
-// Tap-to-call directory for the caller's own estate: guards, admins and
-// the configured emergency contacts. Available to every role — the whole
-// point is that a resident can ring the gate guard directly.
-export async function getEstateContacts() {
-  const { data } = await api.get('/api/estates/contacts')
-  return data as EstateContacts
-}
-
 export async function updateEstateSettings(id: string, payload: Record<string, unknown>) {
   const { data } = await api.patch(`/api/estates/${id}/settings`, payload)
   return data.estate as Estate
@@ -213,7 +198,6 @@ export interface IncidentPayload {
   severity: string
   title: string
   description: string
-  images?: string[]
 }
 
 export async function createIncident(payload: IncidentPayload) {
@@ -235,7 +219,7 @@ export async function getIncident(id: string) {
   return data as Incident
 }
 
-export async function updateIncident(id: string, params: { status?: string; response?: string }) {
+export async function updateIncident(id: string, params: { status?: string; response?: string; title?: string; description?: string }) {
   const { data } = await api.patch(`/api/incidents/${id}`, null, { params })
   return data.incident as Incident
 }
@@ -348,6 +332,27 @@ export async function deleteUser(id: string) {
 export async function getDashboard() {
   const { data } = await api.get('/api/analytics/dashboard')
   return data as AdminDashboard | ResidentDashboard
+}
+
+// ---------- Platform (super_admin only) ----------
+export interface PlatformStats {
+  summary: {
+    total_estates: number
+    active_estates_30d: number
+    total_users: number
+    logins_today: number
+    logins_7d: number
+    logins_30d: number
+  }
+  users_by_role: { id: string; count: number }[]
+  login_trend: { id: string; count: number }[]
+  signup_trend: { id: string; count: number }[]
+  estates: { id: string; name: string; created_at: string; user_count: number }[]
+}
+
+export async function getPlatformStats() {
+  const { data } = await api.get('/api/platform/stats')
+  return data as PlatformStats
 }
 
 // ---------- Community ----------

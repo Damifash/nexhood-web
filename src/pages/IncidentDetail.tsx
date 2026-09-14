@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Phone, Send } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Phone, Send, Pencil, X } from 'lucide-react'
 import { getIncident, updateIncident, resolveIncident } from '@/lib/api'
 import type { Incident } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
@@ -15,7 +15,15 @@ export default function IncidentDetail() {
   const [loading, setLoading] = useState(true)
   const [response, setResponse] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingContent, setEditingContent] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [savingContent, setSavingContent] = useState(false)
   const canManage = user?.role === 'guard' || user?.role === 'admin' || user?.role === 'super_admin'
+  // Editing the reported title/description is moderation power (e.g.
+  // redacting a report that names someone's ethnicity as "suspicious"
+  // instead of describing actual conduct) — admin-only, not guards.
+  const canEditContent = user?.role === 'admin' || user?.role === 'super_admin'
 
   async function load() {
     if (!id) return
@@ -58,6 +66,26 @@ export default function IncidentDetail() {
     }
   }
 
+  function startEditingContent() {
+    if (!incident) return
+    setEditTitle(incident.title)
+    setEditDescription(incident.description)
+    setEditingContent(true)
+  }
+
+  async function handleSaveContent(e: FormEvent) {
+    e.preventDefault()
+    if (!id) return
+    setSavingContent(true)
+    try {
+      const updated = await updateIncident(id, { title: editTitle.trim(), description: editDescription.trim() })
+      setIncident(updated)
+      setEditingContent(false)
+    } finally {
+      setSavingContent(false)
+    }
+  }
+
   if (loading) return <FullPageSpinner />
   if (!incident) return <p className="text-midnight-400">Incident not found.</p>
 
@@ -78,12 +106,54 @@ export default function IncidentDetail() {
               {incident.type.replace('_', ' ')} · Reported by {incident.reporter_name || 'a resident'} · {new Date(incident.created_at).toLocaleString()}
             </p>
           </div>
-          <Badge tone={statusTone(incident.status)}>{incident.status || 'reported'}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge tone={statusTone(incident.status)}>{incident.status || 'reported'}</Badge>
+            {canEditContent && !editingContent && (
+              <button
+                onClick={startEditingContent}
+                className="text-midnight-400 hover:text-midnight-800 p-1.5 rounded-lg hover:bg-midnight-50"
+                title="Edit title/description"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
 
-        <p className="text-sm text-midnight-700 leading-relaxed mt-6">{incident.description}</p>
+        {editingContent ? (
+          <form onSubmit={handleSaveContent} className="mt-6 space-y-3">
+            <p className="text-xs text-midnight-400">
+              Edit the reported title or description — for example, to remove content that names someone's
+              tribe, ethnicity or religion instead of describing what they actually did. This is logged.
+            </p>
+            <input
+              className="input w-full"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              minLength={3}
+              required
+            />
+            <textarea
+              className="input w-full min-h-[100px]"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              minLength={10}
+              required
+            />
+            <div className="flex gap-2">
+              <button className="btn-primary" disabled={savingContent}>
+                {savingContent ? <Spinner className="h-4 w-4" /> : 'Save changes'}
+              </button>
+              <button type="button" className="btn-outline" onClick={() => setEditingContent(false)}>
+                <X className="h-4 w-4" /> Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <p className="text-sm text-midnight-700 leading-relaxed mt-6">{incident.description}</p>
+        )}
 
-        {canManage && (
+        {canManage && !editingContent && (
           <div className="flex flex-wrap gap-2 mt-6">
             {incident.reporter_phone && (
               <a href={`tel:${incident.reporter_phone}`} className="btn-outline">
