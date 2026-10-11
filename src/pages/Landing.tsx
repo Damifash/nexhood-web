@@ -33,16 +33,13 @@ import { useReveal, usePrefersReducedMotion } from '@/components/landing/useReve
 // PROOF: anything left as null is simply not rendered. Never put made-up
 // numbers or quotes here — only real ones from live estates.
 // ---------------------------------------------------------------------------
+// We don't name live estates on the public site, for their residents' privacy.
 const PROOF: {
-  estate: string
-  city: string
   testimonial: { quote: string; name: string; role: string } | null
   stats: { label: string; value: string }[] | null
   photos: { src: string; alt: string }[]
 } = {
-  estate: 'Maraba Estate',
-  city: 'Abuja',
-  testimonial: null, // e.g. { quote: '…', name: 'Mrs. A.', role: 'Resident, Maraba Estate' }
+  testimonial: null, // e.g. { quote: '…', name: 'Mrs. A.', role: 'Resident, Abuja' } (no estate names)
   stats: null, // e.g. [{ label: 'Visitor passes issued', value: '1,240' }]
   photos: [
     { src: '/brand/guard-portrait.jpg', alt: 'An estate guard in a NexHood uniform on duty at the gate' },
@@ -231,7 +228,7 @@ export default function Landing() {
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-6 grid lg:grid-cols-[1.15fr_.85fr] gap-10 lg:gap-14 items-center">
             <div>
               <span className="rise inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-1.5 text-xs font-semibold text-steel-100" style={{ animationDelay: '.1s' }}>
-                <span className="pulse-dot h-2 w-2 rounded-full bg-emerald-400" /> Live at {PROOF.estate}, {PROOF.city}
+                <span className="pulse-dot h-2 w-2 rounded-full bg-emerald-400" /> Live in estates across Abuja
               </span>
               <h1 className="rise mt-5 font-display text-[2.4rem] leading-[1.02] sm:text-6xl font-semibold tracking-tight" style={{ animationDelay: '.25s' }}>
                 {headline}
@@ -343,7 +340,7 @@ export default function Landing() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-10 items-center">
             <Reveal>
               <SectionLabel>Not a prototype</SectionLabel>
-              <h2 className="mt-2 font-display text-3xl sm:text-4xl font-semibold">Live at {PROOF.estate}, {PROOF.city}.</h2>
+              <h2 className="mt-2 font-display text-3xl sm:text-4xl font-semibold">Already protecting estates in Abuja.</h2>
               <p className="mt-4 text-midnight-500 leading-relaxed max-w-lg">
                 Residents, guards and the estate admin use NexHood every day: passes at the gate, alerts, incident reports and the welfare fund.
               </p>
