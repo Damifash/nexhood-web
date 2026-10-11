@@ -125,6 +125,43 @@ export async function submitContact(payload: { name: string; email: string; mess
   }
 }
 
+// ---------- Waitlist (public landing page) ----------
+export type WaitlistRole = 'resident' | 'estate_admin' | 'security' | 'other'
+export type WaitlistEstateSize = 'under_50' | '50_200' | '200_plus'
+
+export interface WaitlistPayload {
+  name: string
+  phone: string
+  email?: string
+  role: WaitlistRole
+  estate_name: string
+  area: string
+  estate_size?: WaitlistEstateSize
+  source?: string
+  ref?: string
+  website?: string // honeypot, always empty for real people
+  elapsed_ms?: number
+}
+
+export interface WaitlistResult {
+  ok: boolean
+  ref_code: string
+  estate_count: number
+  already_joined: boolean
+}
+
+export async function joinWaitlist(payload: WaitlistPayload) {
+  try {
+    const { data } = await api.post('/api/waitlist', payload)
+    return data as WaitlistResult
+  } catch (e) {
+    const status = (e as { response?: { status?: number } })?.response?.status
+    if (status === 429) throw new Error('Too many attempts. Please try again in a little while.')
+    if (!status) throw new Error('Network problem. Check your connection and try again.')
+    throw new Error(errMsg(e, 'Could not join the waitlist. Please try again.'))
+  }
+}
+
 export async function resetPassword(token: string, new_password: string) {
   try {
     const { data } = await api.post('/api/auth/reset-password', { token, new_password })

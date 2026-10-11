@@ -69,3 +69,82 @@
     font-size: 16px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Landing page motion. Everything here is opt-out under reduced motion.
+   --------------------------------------------------------------------------- */
+@keyframes door-light {
+  0% { fill: #0f1e66; filter: none; }
+  100% { fill: #FFF8F8; }
+}
+@keyframes door-glow {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+@keyframes alert-once {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(254, 21, 19, 0); }
+  40% { box-shadow: 0 0 0 10px rgba(254, 21, 19, 0.18); }
+}
+@keyframes ticker-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes scan-sweep {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(88px); opacity: 0; }
+}
+@keyframes ring {
+  0%, 100% { transform: rotate(0); }
+  10%, 30% { transform: rotate(-14deg); }
+  20%, 40% { transform: rotate(14deg); }
+  50% { transform: rotate(0); }
+}
+@keyframes slide-check {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.door { fill: #0f1e66; }
+.door-lit { animation: door-light 0.5s ease-out forwards; }
+.door-halo { opacity: 0; }
+.door-lit + .door-halo { animation: door-glow 0.8s ease-out forwards; }
+.rise { opacity: 0; animation: rise-in 0.7s cubic-bezier(.2,.7,.2,1) forwards; }
+.pulse-dot { animation: pulse-dot 2s infinite; }
+.alert-once { animation: alert-once 1.6s ease-out 1.8s 1; }
+.ticker-in { animation: ticker-in 0.4s ease-out; }
+.scan-line { animation: scan-sweep 1.4s ease-in-out infinite; }
+.ring { animation: ring 1.2s ease-in-out infinite; transform-origin: 50% 20%; }
+.slide-check { animation: slide-check 0.45s cubic-bezier(.2,.7,.2,1) both; }
+.paused, .paused * { animation-play-state: paused !important; }
+
+.reveal { opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.in { opacity: 1; transform: none; }
+
+.press { transition: transform .08s ease; }
+.press:active { transform: scale(0.97); }
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .door-lit, .door-lit + .door-halo, .rise, .pulse-dot, .alert-once, .ticker-in,
+  .scan-line, .ring, .slide-check {
+    animation: none !important;
+  }
+  .door-lit { fill: #FFF8F8; }
+  .door-lit + .door-halo { opacity: 1; }
+  .rise { opacity: 1; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  html { scroll-behavior: auto; }
+}
