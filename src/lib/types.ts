@@ -159,11 +159,19 @@ export interface SetupStep {
 }
 
 export interface ActivityItem {
-  actor: string
-  role?: string | null
-  action: string
-  entity: string
+  kind: string
   at: string
+  actor: string
+  text: string
+  link?: string
+  level?: string
+}
+
+export interface MemberActivity {
+  name: string
+  role: string
+  unit?: string | null
+  last_seen?: string | null
 }
 
 export interface DailyPoint {
@@ -197,6 +205,8 @@ export interface AdminDashboard {
     residents: number
     residents_dormant_30d: number
     residents_no_unit: number
+    residents_active_7d?: number
+    members?: MemberActivity[]
   }
   visitors?: {
     by_hour: number[]
@@ -226,6 +236,7 @@ export interface AdminDashboard {
     pending_donations?: number
   }
   recent_activity: ActivityItem[]
+  admin_log?: ActivityItem[]
 }
 
 export interface ResidentDashboard {

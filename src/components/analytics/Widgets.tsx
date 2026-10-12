@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
-import { AlertTriangle, ArrowRight, Check, CircleAlert, Info, TrendingDown, TrendingUp, Minus } from 'lucide-react'
-import type { ActivityItem, AttentionItem, SetupStep } from '@/lib/types'
-import { activityText, timeAgo } from './format'
+import {
+  AlertTriangle, ArrowRight, Bell, Check, CheckCircle2, CircleAlert, DoorOpen, HeartHandshake, Info, MessageSquare, Minus,
+  PencilLine, QrCode, Settings2, ShieldAlert, ShieldCheck, Siren, TrendingDown, TrendingUp, UserCog, UserMinus, UserPlus,
+} from 'lucide-react'
+import type { ActivityItem, AttentionItem, MemberActivity, SetupStep } from '@/lib/types'
+import { clockTime, dayHeading, parseDate, timeAgo } from './format'
 
 export function KpiTile({
   label,
@@ -108,19 +111,95 @@ export function SetupChecklist({ steps }: { steps: SetupStep[] }) {
   )
 }
 
-export function ActivityFeed({ items, limit = 8 }: { items: ActivityItem[]; limit?: number }) {
-  if (items.length === 0) return <p className="text-sm text-midnight-400">No activity in this period.</p>
+const KIND_ICON: Record<string, { icon: LucideIcon; cls: string }> = {
+  pass_created: { icon: QrCode, cls: 'bg-royal-50 text-royal-600' },
+  pass_used: { icon: DoorOpen, cls: 'bg-emerald-50 text-emerald-600' },
+  incident: { icon: Siren, cls: 'bg-amber-50 text-amber-700' },
+  incident_resolved: { icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-600' },
+  alert: { icon: Bell, cls: 'bg-alert-50 text-alert-600' },
+  alert_ack: { icon: ShieldCheck, cls: 'bg-royal-50 text-royal-600' },
+  alert_resolved: { icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-600' },
+  police: { icon: ShieldAlert, cls: 'bg-alert-50 text-alert-600' },
+  post: { icon: MessageSquare, cls: 'bg-steel-100 text-steel-700' },
+  joined: { icon: UserPlus, cls: 'bg-royal-50 text-royal-600' },
+  user_invite: { icon: UserPlus, cls: 'bg-royal-50 text-royal-600' },
+  user_delete: { icon: UserMinus, cls: 'bg-midnight-50 text-midnight-600' },
+  user_role_change: { icon: UserCog, cls: 'bg-midnight-50 text-midnight-600' },
+  user_update: { icon: UserCog, cls: 'bg-midnight-50 text-midnight-600' },
+  estate_update_settings: { icon: Settings2, cls: 'bg-midnight-50 text-midnight-600' },
+  donation_verify: { icon: HeartHandshake, cls: 'bg-emerald-50 text-emerald-600' },
+  incident_edit_content: { icon: PencilLine, cls: 'bg-midnight-50 text-midnight-600' },
+}
+
+export function ActivityFeed({ items, limit = 8, empty = 'Nothing happened in this period.' }: { items: ActivityItem[]; limit?: number; empty?: string }) {
+  if (items.length === 0) return <p className="text-sm text-midnight-400 py-4">{empty}</p>
+  const shown = items.slice(0, limit)
+  const groups: { day: string; rows: ActivityItem[] }[] = []
+  shown.forEach((it) => {
+    const day = dayHeading(it.at)
+    const last = groups[groups.length - 1]
+    if (last && last.day === day) last.rows.push(it)
+    else groups.push({ day, rows: [it] })
+  })
+  return (
+    <div className="space-y-4">
+      {groups.map((g) => (
+        <div key={g.day}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-midnight-400 mb-1.5">{g.day}</p>
+          <ul className="space-y-1">
+            {g.rows.map((it, i) => {
+              const k = KIND_ICON[it.kind] || { icon: Info, cls: 'bg-midnight-50 text-midnight-600' }
+              const body = (
+                <>
+                  <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${k.cls}`}>
+                    <k.icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-sm text-midnight-700 leading-snug">
+                    {it.actor && <span className="font-semibold text-midnight-900">{it.actor} </span>}
+                    {it.text}
+                  </span>
+                  <span className="text-xs text-midnight-400 shrink-0 tabular-nums pt-0.5">{clockTime(it.at)}</span>
+                </>
+              )
+              return (
+                <li key={`${it.at}-${i}`}>
+                  {it.link ? (
+                    <Link to={it.link} className="flex items-start gap-3 rounded-lg px-2 py-1.5 -mx-2 hover:bg-midnight-50/70 transition">
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="flex items-start gap-3 px-2 py-1.5 -mx-2">{body}</div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function MemberList({ members, limit = 8 }: { members: MemberActivity[]; limit?: number }) {
+  if (members.length === 0) return null
   return (
     <ul className="divide-y divide-midnight-50">
-      {items.slice(0, limit).map((a, i) => (
-        <li key={i} className="py-2.5 flex items-start justify-between gap-3 text-sm">
-          <span className="min-w-0 text-midnight-700">
-            <span className="font-semibold text-midnight-900">{a.actor}</span>{' '}
-            {a.role && <span className="text-xs text-midnight-400 capitalize">({a.role})</span>} {activityText(a)}
-          </span>
-          <span className="text-xs text-midnight-400 shrink-0 tabular-nums">{a.at ? timeAgo(a.at) : ''}</span>
-        </li>
-      ))}
+      {members.slice(0, limit).map((m, i) => {
+        const d = parseDate(m.last_seen)
+        const fresh = d && Date.now() - d.getTime() < 7 * 86400000
+        return (
+          <li key={i} className="py-2 flex items-center justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate">
+              <span className="font-medium text-midnight-900">{m.name}</span>{' '}
+              <span className="text-xs text-midnight-400 capitalize">{m.role}{m.unit ? ` · ${m.unit}` : ''}</span>
+            </span>
+            <span className={`text-xs shrink-0 flex items-center gap-1.5 ${fresh ? 'text-emerald-700' : 'text-midnight-400'}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${fresh ? 'bg-emerald-500' : 'bg-midnight-200'}`} aria-hidden="true" />
+              {m.last_seen ? `Active ${timeAgo(m.last_seen)}` : 'Never active'}
+            </span>
+          </li>
+        )
+      })}
     </ul>
   )
 }

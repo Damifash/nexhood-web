@@ -13,11 +13,11 @@ import {
 } from 'recharts'
 import { Bell, Download, QrCode, Siren, Timer, Users2, HeartHandshake, MessageSquare, ShieldAlert, Wrench } from 'lucide-react'
 import { getDashboard } from '@/lib/api'
-import type { AdminDashboard, AnalyticsPeriod, DailyPoint } from '@/lib/types'
+import type { ActivityItem, AdminDashboard, AnalyticsPeriod, DailyPoint } from '@/lib/types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge } from '@/components/ui/Badge'
-import { ActivityFeed, AttentionList, KpiTile, PeriodPicker, SetupChecklist } from '@/components/analytics/Widgets'
+import { ActivityFeed, AttentionList, KpiTile, MemberList, PeriodPicker, SetupChecklist } from '@/components/analytics/Widgets'
 import { SERIES, changeLabel, formatDuration } from '@/components/analytics/format'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -165,7 +165,12 @@ export default function Analytics() {
             <KpiTile label="Visitor passes" value={s.total_visitors} icon={QrCode} change={changeLabel(s.visitors_change_pct, days)} changePct={s.visitors_change_pct} hint={`${s.visitors_prev ?? 0} in the previous ${days} days`} />
             <KpiTile label="Incidents reported" value={s.incidents_new ?? 0} icon={Siren} change={changeLabel(s.incidents_change_pct, days)} changePct={s.incidents_change_pct} hint={`${s.active_incidents} still open`} />
             <KpiTile label="Alerts raised" value={s.total_alerts} icon={Bell} change={changeLabel(s.alerts_change_pct, days)} changePct={s.alerts_change_pct} hint={`${s.active_alerts} still open`} />
-            <KpiTile label="Active users" value={s.users_active_period ?? '—'} icon={Users2} hint={`${s.users_active_7d ?? 0} this week · ${s.total_users} on NexHood`} />
+            <KpiTile
+                label="Residents active"
+                value={p ? `${p.residents - (p.residents_dormant_30d ?? 0)} of ${p.residents}` : s.users_active_period ?? '—'}
+                icon={Users2}
+                hint={`Used NexHood in the last 30 days · ${p?.residents_active_7d ?? 0} this week`}
+              />
           </div>
 
           {/* Attention + setup */}
@@ -345,8 +350,8 @@ export default function Analytics() {
               </div>
               <dl className="mt-5 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-xl bg-midnight-50/60 p-3">
-                  <dd className="font-display text-xl font-semibold">{s.logins_period ?? 0}</dd>
-                  <dt className="text-xs text-midnight-500">Logins</dt>
+                  <dd className="font-display text-xl font-semibold">{p?.residents_active_7d ?? 0}</dd>
+                  <dt className="text-xs text-midnight-500">Residents active this week</dt>
                 </div>
                 <div className="rounded-xl bg-midnight-50/60 p-3">
                   <dd className="font-display text-xl font-semibold">{p?.residents_dormant_30d ?? 0}</dd>
@@ -357,6 +362,12 @@ export default function Analytics() {
                   <dt className="text-xs text-midnight-500">Never logged in</dt>
                 </div>
               </dl>
+              {p?.members && p.members.length > 0 && (
+                <div className="mt-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-midnight-400 mb-1">Last active</p>
+                  <MemberList members={p.members} limit={10} />
+                </div>
+              )}
             </section>
             <section className="card p-5 sm:p-6" aria-labelledby="com-h">
               <h3 id="com-h" className="font-display font-semibold text-midnight-900">Community & welfare</h3>
@@ -381,13 +392,46 @@ export default function Analytics() {
             </section>
           </div>
 
-          {/* Activity log */}
-          <section className="card p-5 sm:p-6" aria-labelledby="log-h">
-            <h3 id="log-h" className="font-display font-semibold text-midnight-900 mb-2">Activity log</h3>
-            <ActivityFeed items={data.recent_activity} limit={25} />
-          </section>
+          {/* Activity */}
+          <ActivityTabs estate={data.recent_activity} admin={data.admin_log ?? []} />
         </div>
       )}
     </div>
+  )
+}
+
+function ActivityTabs({ estate, admin }: { estate: ActivityItem[]; admin: ActivityItem[] }) {
+  const [tab, setTab] = useState<'estate' | 'admin'>('estate')
+  const items = tab === 'estate' ? estate : admin
+  return (
+    <section className="card p-5 sm:p-6" aria-labelledby="log-h">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h3 id="log-h" className="font-display font-semibold text-midnight-900">Activity</h3>
+        <div role="tablist" aria-label="Activity type" className="inline-flex rounded-full border border-midnight-200 bg-white p-1">
+          {([
+            ['estate', 'Estate activity'],
+            ['admin', 'Admin changes'],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              role="tab"
+              type="button"
+              aria-selected={tab === k}
+              onClick={() => setTab(k)}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-400 ${
+                tab === k ? 'bg-midnight-900 text-warm' : 'text-midnight-600 hover:bg-midnight-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ActivityFeed
+        items={items}
+        limit={40}
+        empty={tab === 'estate' ? 'Nothing happened in the estate in this period.' : 'No admin changes in this period.'}
+      />
+    </section>
   )
 }

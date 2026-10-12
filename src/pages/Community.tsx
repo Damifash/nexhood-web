@@ -165,7 +165,9 @@ export default function Community() {
 // log. Falls back to just the role if an older post has no name on record.
 function authorLabel(name: string | undefined, role: string, apartment?: string | null) {
   const who = name || role.replace('_', ' ')
-  const detail = role === 'resident' && apartment ? `Flat ${apartment}` : role.replace('_', ' ')
+  // Residents often type "flat 6" themselves; don't turn that into "Flat flat 6".
+  const unit = apartment ? (/^(flat|apt|apartment|house|block|unit|plot)\b/i.test(apartment.trim()) ? apartment.trim() : `Flat ${apartment.trim()}`) : ''
+  const detail = role === 'resident' && unit ? unit.charAt(0).toUpperCase() + unit.slice(1) : role.replace('_', ' ')
   return { who, detail }
 }
 

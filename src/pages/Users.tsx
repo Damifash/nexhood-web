@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner, EmptyState } from '@/components/ui/Spinner'
 import { Badge } from '@/components/ui/Badge'
+import { parseDate, timeAgo } from '@/components/analytics/format'
 
 // Order matters here: this drives both the invite dropdown and the
 // per-user role-change dropdown. Resident/guard/police are the roles an
@@ -36,11 +37,18 @@ export default function Users() {
   }, [])
 
   async function handleRoleChange(id: string, role: string) {
+    const target = users.find((u) => u.id === id)
+    if (!confirm(`Change ${target?.name || 'this user'}'s role to ${role}?`)) return
     await changeUserRole(id, role)
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: role as Role } : u)))
   }
 
   async function handleToggleActive(id: string, active: boolean) {
+    const target = users.find((u) => u.id === id)
+    const msg = active
+      ? `Give ${target?.name || 'this user'} access to NexHood again?`
+      : `Block ${target?.name || 'this user'} from logging in? They won't be able to use NexHood until you allow them again.`
+    if (!confirm(msg)) return
     await updateUser(id, { is_active: active })
     setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, is_active: active } : u)))
   }
@@ -81,7 +89,8 @@ export default function Users() {
                   <th className="px-6 py-3 font-semibold">Name</th>
                   <th className="px-6 py-3 font-semibold">Contact</th>
                   <th className="px-6 py-3 font-semibold">Role</th>
-                  <th className="px-6 py-3 font-semibold">Status</th>
+                  <th className="px-6 py-3 font-semibold">Access</th>
+                  <th className="px-6 py-3 font-semibold">Last active</th>
                   <th className="px-6 py-3 font-semibold" />
                 </tr>
               </thead>
@@ -108,9 +117,16 @@ export default function Users() {
                       </select>
                     </td>
                     <td className="px-6 py-3">
-                      <button onClick={() => handleToggleActive(u.id, !u.is_active)}>
-                        <Badge tone={u.is_active ? 'success' : 'neutral'}>{u.is_active ? 'Active' : 'Inactive'}</Badge>
+                      <button
+                        onClick={() => handleToggleActive(u.id, !u.is_active)}
+                        disabled={u.id === me?.id}
+                        title={u.is_active ? 'Can log in. Click to block.' : 'Blocked. Click to allow again.'}
+                      >
+                        <Badge tone={u.is_active ? 'success' : 'neutral'}>{u.is_active ? 'Allowed' : 'Blocked'}</Badge>
                       </button>
+                    </td>
+                    <td className="px-6 py-3 text-xs text-midnight-500 whitespace-nowrap">
+                      {neverUsed(u) ? <span className="text-amber-700">Never logged in</span> : timeAgo(u.last_seen)}
                     </td>
                     <td className="px-6 py-3 text-right">
                       {u.id !== me?.id && (
@@ -289,4 +305,13 @@ function BulkInviteModal({ open, onClose, onInvited }: { open: boolean; onClose:
       )}
     </Modal>
   )
+}
+
+// Invited accounts get last_seen = created_at at invite time, so a
+// last_seen within a few minutes of creation means they never came back.
+function neverUsed(u: User) {
+  const seen = parseDate(u.last_seen)
+  const created = parseDate((u as User & { created_at?: string }).created_at)
+  if (!seen) return true
+  return !!created && seen.getTime() - created.getTime() < 5 * 60 * 1000
 }

@@ -155,8 +155,8 @@ function ProfileCard() {
         <div className="mt-5 pt-5 border-t border-midnight-50">
           <p className="text-xs uppercase tracking-wide text-midnight-400 font-semibold mb-2">Badges earned</p>
           <div className="flex flex-wrap gap-2">
-            {user.badges.map((b, i) => (
-              <Badge key={i} tone="alert">{b.badge}</Badge>
+            {Array.from(new Set(user.badges.map((b) => b.badge))).map((name) => (
+              <Badge key={name} tone="alert">{name}</Badge>
             ))}
           </div>
         </div>

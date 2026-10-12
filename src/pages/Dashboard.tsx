@@ -111,18 +111,23 @@ function AdminOverview({ data }: { data: AdminDashboard }) {
         <KpiTile label={`Visitors (${days}d)`} value={s.total_visitors} icon={QrCode} change={changeLabel(s.visitors_change_pct, days)} changePct={s.visitors_change_pct} hint={`${s.visitors_prev ?? 0} in the previous ${days} days`} />
         <KpiTile label="Open incidents" value={s.active_incidents} icon={Siren} hint={`${s.incidents_new ?? 0} reported in ${days} days`} />
         <KpiTile label="Open alerts" value={s.active_alerts} icon={Bell} hint={`${s.total_alerts} raised in ${days} days`} />
-        <KpiTile label="Active users (7d)" value={s.users_active_7d ?? '—'} icon={Users2} hint={`of ${s.total_users} people on NexHood`} />
+        <KpiTile
+          label="Residents active (7d)"
+          value={data.people ? `${data.people.residents_active_7d ?? 0} of ${data.people.residents}` : s.users_active_7d ?? '—'}
+          icon={Users2}
+          hint={`${s.users_active_7d ?? 0} people in total used NexHood this week`}
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <section className="card p-5 sm:p-6 lg:col-span-2" aria-labelledby="activity-h">
           <div className="flex items-center justify-between mb-2">
-            <h3 id="activity-h" className="font-display font-semibold text-midnight-900">Recent activity</h3>
+            <h3 id="activity-h" className="font-display font-semibold text-midnight-900">What's happening in the estate</h3>
             <Link to="/app/analytics" className="text-xs font-semibold text-royal flex items-center gap-1 hover:underline">
               Full analytics <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
-          <ActivityFeed items={data.recent_activity} limit={8} />
+          <ActivityFeed items={data.recent_activity} limit={10} empty={`Nothing happened in the estate in the last ${days} days.`} />
         </section>
 
         <div className="space-y-6">

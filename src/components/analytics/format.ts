@@ -1,5 +1,3 @@
-import type { ActivityItem } from '@/lib/types'
-
 export function formatDuration(minutes: number | null | undefined) {
   if (minutes === null || minutes === undefined) return '—'
   if (minutes < 1) return '< 1 min'
@@ -9,39 +7,42 @@ export function formatDuration(minutes: number | null | undefined) {
   return `${Math.round(hours / 24)} days`
 }
 
-export function timeAgo(iso: string) {
-  const then = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z').getTime()
-  const s = Math.max(0, (Date.now() - then) / 1000)
+/** Parse an API timestamp safely. The API sends UTC; older responses
+ * had no "Z" and 6-digit microseconds, which some browsers (Safari)
+ * reject as "Invalid Date" and others read as local time. */
+export function parseDate(value: string | null | undefined): Date | null {
+  if (!value) return null
+  let v = value.trim().replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1')
+  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(v)) v += 'Z'
+  const d = new Date(v)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+export function timeAgo(iso: string | null | undefined) {
+  const d = parseDate(iso)
+  if (!d) return ''
+  const s = Math.max(0, (Date.now() - d.getTime()) / 1000)
   if (s < 60) return 'just now'
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
-  if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`
-  return new Date(then).toLocaleDateString()
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`
+  if (s < 86400) return `${Math.floor(s / 3600)} hr ago`
+  if (s < 86400 * 7) return `${Math.floor(s / 86400)} day${Math.floor(s / 86400) === 1 ? '' : 's'} ago`
+  return d.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' })
 }
 
-const ACTIVITY_TEXT: Record<string, string> = {
-  'create:visitor_pass': 'issued a visitor pass',
-  'validate:visitor_pass': 'checked in a visitor at the gate',
-  'create:incident': 'reported an incident',
-  'update:incident': 'updated an incident',
-  'edit_content:incident': 'edited an incident report',
-  'create:alert': 'raised an alert',
-  'acknowledge:alert': 'acknowledged an alert',
-  'resolve:alert': 'resolved an alert',
-  'police_notify:alert': 'notified the police',
-  'invite:user': 'invited a new user',
-  'create:user': 'added a user',
-  'update:user': 'updated a user',
-  'delete:user': 'removed a user',
-  'role_change:user': "changed a user's role",
-  'update_settings:estate': 'updated estate settings',
-  'create:estate': 'created the estate',
-  'verify:donation': 'confirmed a welfare pledge',
-  'update:user_profile': 'updated their profile',
+export function clockTime(iso: string | null | undefined) {
+  const d = parseDate(iso)
+  return d ? d.toLocaleTimeString('en-NG', { hour: 'numeric', minute: '2-digit' }) : ''
 }
 
-export function activityText(a: ActivityItem) {
-  return ACTIVITY_TEXT[`${a.action}:${a.entity}`] || `${String(a.action).replace(/_/g, ' ')} ${String(a.entity).replace(/_/g, ' ')}`
+export function dayHeading(iso: string | null | undefined) {
+  const d = parseDate(iso)
+  if (!d) return ''
+  const today = new Date()
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diff = Math.round((startOf(today) - startOf(d)) / 86400000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  return d.toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' })
 }
 
 export function changeLabel(pct: number | null | undefined, days: number) {
