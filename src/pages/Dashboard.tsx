@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users2, QrCode, Siren, Bell, ArrowRight } from 'lucide-react'
+import { Users2, QrCode, Siren, Bell, ArrowRight, Timer } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { getDashboard } from '@/lib/api'
 import type { AdminDashboard, ResidentDashboard } from '@/lib/types'
@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge, statusTone } from '@/components/ui/Badge'
+import { ActivityFeed, AttentionList, KpiTile, SetupChecklist } from '@/components/analytics/Widgets'
+import { changeLabel, formatDuration } from '@/components/analytics/format'
 
 function isAdminDashboard(d: AdminDashboard | ResidentDashboard): d is AdminDashboard {
   return 'trends' in d
@@ -47,61 +49,16 @@ export default function Dashboard() {
 
       {data && (
         <div className="space-y-8">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard label="Visitor passes" value={data.summary.total_visitors} icon={QrCode} tone="royal" />
-            <StatCard label="Active incidents" value={data.summary.active_incidents} icon={Siren} tone="alert" />
-            <StatCard label="Alerts" value={data.summary.total_alerts} icon={Bell} tone="midnight" />
-            {isAdmin && <StatCard label="Active residents" value={data.summary.total_users} icon={Users2} tone="steel" />}
-          </div>
+          {!isAdminDashboard(data) && (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <StatCard label="Your visitor passes" value={data.summary.total_visitors} icon={QrCode} tone="royal" />
+              <StatCard label="Your open incidents" value={data.summary.active_incidents} icon={Siren} tone="alert" />
+              <StatCard label="Your active alerts" value={data.summary.total_alerts} icon={Bell} tone="midnight" />
+            </div>
+          )}
 
           {isAdminDashboard(data) ? (
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="card p-6">
-                <h3 className="font-display font-semibold text-midnight-900 mb-4">Incident types (30 days)</h3>
-                {data.distributions.incident_types.length === 0 ? (
-                  <p className="text-sm text-midnight-400">No incidents recorded yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {data.distributions.incident_types.map((t) => {
-                      const max = Math.max(...data.distributions.incident_types.map((x) => x.count), 1)
-                      return (
-                        <div key={t.id}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="capitalize text-midnight-700">{t.id.replace('_', ' ')}</span>
-                            <span className="text-midnight-400">{t.count}</span>
-                          </div>
-                          <div className="h-2 rounded-full bg-midnight-50 overflow-hidden">
-                            <div className="h-full bg-royal rounded-full" style={{ width: `${(t.count / max) * 100}%` }} />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-display font-semibold text-midnight-900">Recent activity</h3>
-                  <Link to="/app/analytics" className="text-xs font-semibold text-royal flex items-center gap-1 hover:underline">
-                    Full analytics <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
-                {data.recent_activity.length === 0 ? (
-                  <p className="text-sm text-midnight-400">Nothing logged yet.</p>
-                ) : (
-                  <ul className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                    {data.recent_activity.slice(0, 8).map((a, i) => (
-                      <li key={i} className="text-sm flex items-center justify-between gap-3 border-b border-midnight-50 pb-3 last:border-0 last:pb-0">
-                        <span className="text-midnight-700 capitalize truncate">
-                          {String(a.action)} {String(a.entity)}
-                        </span>
-                        <Badge tone="royal">{String(a.action)}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
+            <AdminOverview data={data} />
           ) : (
             <div className="card p-6">
               <div className="flex items-center justify-between mb-4">
@@ -129,6 +86,73 @@ export default function Dashboard() {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function AdminOverview({ data }: { data: AdminDashboard }) {
+  const days = data.period?.days ?? 30
+  const s = data.summary
+  const attention = data.attention ?? []
+  const setup = data.setup ?? []
+  const setupDone = setup.length > 0 && setup.every((x) => x.done)
+  const r = data.response
+  return (
+    <div className="space-y-6">
+      <section className="card p-5 sm:p-6" aria-labelledby="attention-h">
+        <div className="flex items-center justify-between mb-4">
+          <h3 id="attention-h" className="font-display font-semibold text-midnight-900">Needs your attention</h3>
+          {attention.length > 0 && <Badge tone={attention.some((a) => a.level === 'critical') ? 'alert' : 'warning'}>{attention.length}</Badge>}
+        </div>
+        <AttentionList items={attention} limit={5} />
+      </section>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiTile label={`Visitors (${days}d)`} value={s.total_visitors} icon={QrCode} change={changeLabel(s.visitors_change_pct, days)} changePct={s.visitors_change_pct} hint={`${s.visitors_prev ?? 0} in the previous ${days} days`} />
+        <KpiTile label="Open incidents" value={s.active_incidents} icon={Siren} hint={`${s.incidents_new ?? 0} reported in ${days} days`} />
+        <KpiTile label="Open alerts" value={s.active_alerts} icon={Bell} hint={`${s.total_alerts} raised in ${days} days`} />
+        <KpiTile label="Active users (7d)" value={s.users_active_7d ?? '—'} icon={Users2} hint={`of ${s.total_users} people on NexHood`} />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        <section className="card p-5 sm:p-6 lg:col-span-2" aria-labelledby="activity-h">
+          <div className="flex items-center justify-between mb-2">
+            <h3 id="activity-h" className="font-display font-semibold text-midnight-900">Recent activity</h3>
+            <Link to="/app/analytics" className="text-xs font-semibold text-royal flex items-center gap-1 hover:underline">
+              Full analytics <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <ActivityFeed items={data.recent_activity} limit={8} />
+        </section>
+
+        <div className="space-y-6">
+          <section className="card p-5 sm:p-6" aria-labelledby="response-h">
+            <h3 id="response-h" className="font-display font-semibold text-midnight-900 flex items-center gap-2">
+              <Timer className="h-4 w-4 text-royal" /> Emergency response ({days}d)
+            </h3>
+            {r && r.alerts_total > 0 ? (
+              <dl className="mt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <dt className="text-xs text-midnight-400">Typical time to first response</dt>
+                  <dd className="font-display text-xl font-semibold text-midnight-900">{formatDuration(r.median_ack_minutes)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-midnight-400">Alerts someone responded to</dt>
+                  <dd className="font-display text-xl font-semibold text-midnight-900">{r.ack_rate_pct ?? 0}%</dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="mt-3 text-sm text-midnight-400">No alerts raised in the last {days} days.</p>
+            )}
+          </section>
+
+          {setup.length > 0 && !setupDone && (
+            <section className="card p-5 sm:p-6">
+              <SetupChecklist steps={setup} />
+            </section>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

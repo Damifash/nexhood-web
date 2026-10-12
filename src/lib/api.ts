@@ -387,8 +387,8 @@ export async function deleteUser(id: string) {
 }
 
 // ---------- Analytics ----------
-export async function getDashboard() {
-  const { data } = await api.get('/api/analytics/dashboard')
+export async function getDashboard(days: number = 30) {
+  const { data } = await api.get('/api/analytics/dashboard', { params: { days } })
   return data as AdminDashboard | ResidentDashboard
 }
 
@@ -469,7 +469,7 @@ export async function createCampaign(payload: { title: string; description?: str
 export async function donate(amount: number, for_role: 'guards' | 'police', campaign_id?: string) {
   try {
     const { data } = await api.post('/api/welfare/donate', { amount, for_role, campaign_id })
-    return data as { paystack_link: string; donation_id: string; status: string }
+    return data as { paystack_link: string | null; donation_id: string; status: string }
   } catch (e) {
     throw new Error(errMsg(e, 'Could not start donation'))
   }

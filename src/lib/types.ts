@@ -129,6 +129,48 @@ export interface DashboardSummary {
   total_alerts: number
   active_alerts: number
   total_users: number
+  // Admin analytics (v28+). Optional so the resident dashboard still types.
+  visitors_prev?: number
+  visitors_change_pct?: number | null
+  incidents_new?: number
+  incidents_prev?: number
+  incidents_change_pct?: number | null
+  alerts_prev?: number
+  alerts_change_pct?: number | null
+  users_active_7d?: number
+  users_active_period?: number
+  logins_period?: number
+}
+
+export type AnalyticsPeriod = 7 | 30 | 90 | 365
+
+export interface AttentionItem {
+  key: string
+  level: 'critical' | 'warning' | 'info'
+  title: string
+  detail: string
+  link: string
+}
+
+export interface SetupStep {
+  key: string
+  label: string
+  done: boolean
+}
+
+export interface ActivityItem {
+  actor: string
+  role?: string | null
+  action: string
+  entity: string
+  at: string
+}
+
+export interface DailyPoint {
+  date: string
+  visitors: number
+  incidents: number
+  alerts: number
 }
 
 // Note: the backend's serialize_doc() renames ANY dict key literally named
@@ -138,8 +180,33 @@ export interface DashboardSummary {
 // what main.py's aggregation pipeline looks like, the JSON that actually
 // reaches the browser has "id", not "_id". Keep these in sync with that.
 export interface AdminDashboard {
+  period?: { days: number; start: string; end: string }
   summary: DashboardSummary
+  response?: {
+    alerts_total: number
+    alerts_acknowledged: number
+    ack_rate_pct: number | null
+    median_ack_minutes: number | null
+    median_alert_resolve_minutes: number | null
+    median_incident_resolve_hours: number | null
+    police_notified: number
+  }
+  people?: {
+    by_role: Record<string, number>
+    never_logged_in: number
+    residents: number
+    residents_dormant_30d: number
+    residents_no_unit: number
+  }
+  visitors?: {
+    by_hour: number[]
+    by_weekday: number[]
+    status: Record<string, number>
+  }
+  attention?: AttentionItem[]
+  setup?: SetupStep[]
   trends: {
+    daily?: DailyPoint[]
     incidents: { id: string; count: number }[]
     visitors: { id: string; count: number }[]
   }
@@ -153,10 +220,12 @@ export interface AdminDashboard {
   }
   engagement: {
     posts_last_30d: number
+    posts_period?: number
     welfare_raised_total: number
     active_campaigns: number
+    pending_donations?: number
   }
-  recent_activity: Record<string, unknown>[]
+  recent_activity: ActivityItem[]
 }
 
 export interface ResidentDashboard {

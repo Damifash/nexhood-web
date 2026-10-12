@@ -150,7 +150,9 @@ function DonateModal({ target, onClose }: { target: WelfareCampaign | 'general';
     setLoading(true)
     try {
       const { paystack_link } = await donate(amount, forRole, isGeneral ? undefined : target.id)
-      setLink(paystack_link)
+      // The backend no longer returns a checkout link until real Paystack
+      // payments are set up, so 'recorded' just shows the confirmation.
+      setLink(paystack_link || 'recorded')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start donation')
     } finally {
@@ -170,9 +172,13 @@ function DonateModal({ target, onClose }: { target: WelfareCampaign | 'general';
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center">
           <p className="text-sm text-emerald-800 mb-1">Your pledge has been recorded.</p>
           <p className="text-xs text-emerald-700 mb-3">It won't show up in the campaign total until your admin confirms the money's actually in.</p>
-          <a href={link} target="_blank" rel="noreferrer" className="btn-primary">
-            Continue to checkout <ExternalLink className="h-4 w-4" />
-          </a>
+          {link !== 'recorded' && link.startsWith('https://checkout.paystack.com/') ? (
+            <a href={link} target="_blank" rel="noreferrer" className="btn-primary">
+              Continue to checkout <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : (
+            <p className="text-xs text-emerald-800">Pay your estate admin the usual way (bank transfer or cash). Online card payment is coming soon.</p>
+          )}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
