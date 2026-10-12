@@ -109,7 +109,7 @@ export default function VisitorPasses() {
       <div className="card">
         <div className="px-6 py-4 border-b border-midnight-50 flex items-center justify-between">
           <h3 className="font-display font-semibold text-midnight-900">
-            {user?.role === 'admin' || user?.role === 'super_admin' ? 'All passes' : 'Your passes'}
+            {user?.role === 'admin' || user?.role === 'super_admin' ? 'All passes' : user?.role === 'guard' ? 'Visitor passes in the estate' : 'Your passes'}
           </h3>
         </div>
         {loading ? (
@@ -141,9 +141,11 @@ export default function VisitorPasses() {
                     </td>
                     <td className="px-6 py-3"><Badge tone={statusTone(p.status)}>{p.status}</Badge></td>
                     <td className="px-6 py-3 text-right">
+{p.qr_code ? (
                       <button onClick={() => setViewPass(p)} className="text-royal text-xs font-semibold hover:underline inline-flex items-center gap-1">
                         <QrCode className="h-3.5 w-3.5" /> View QR
                       </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

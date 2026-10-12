@@ -15,6 +15,9 @@ import Welfare from '@/pages/Welfare'
 import UsersPage from '@/pages/Users'
 import Settings from '@/pages/Settings'
 import NotFound from '@/pages/NotFound'
+import Payments from '@/pages/Payments'
+import Finances from '@/pages/Finances'
+import Repairs from '@/pages/Repairs'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
@@ -36,6 +39,9 @@ export default function App() {
           <Route path="alerts" element={<Alerts />} />
           <Route path="community" element={<Community />} />
           <Route path="welfare" element={<Welfare />} />
+          <Route path="payments" element={<Payments />} />
+          <Route path="finances" element={<Finances />} />
+          <Route path="repairs" element={<Repairs />} />
           <Route path="settings" element={<Settings />} />
 
           <Route element={<ProtectedRoute roles={['admin', 'super_admin']} />}>

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AlertCircle, CheckCircle2, Plus, Trash2, Pencil, X } from 'lucide-react'
-import { changePassword, getEstate, updateEstateSettings, updateMyProfile, updateEstateProfile } from '@/lib/api'
+import { changePassword, getEstate, listUsers, updateEstateSettings, updateMyProfile, updateEstateProfile } from '@/lib/api'
+import { getFinanceSettings, updateFinanceSettings } from '@/lib/finance'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
@@ -18,6 +19,8 @@ export default function Settings() {
       <PasswordCard />
 
       {(user?.role === 'admin' || user?.role === 'super_admin') && <EstateSettingsCard estateId={user.estate_id ?? undefined} />}
+
+      {(user?.role === 'admin' || user?.role === 'super_admin') && <FinanceSettingsCard />}
     </div>
   )
 }
@@ -376,5 +379,93 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
         </form>
       )}
     </div>
+  )
+}
+
+function FinanceSettingsCard() {
+  const [loaded, setLoaded] = useState(false)
+  const [admins, setAdmins] = useState<{ id: string; name: string }[]>([])
+  const [form, setForm] = useState({ bank_name: '', account_name: '', account_number: '', approval_threshold: '100000', approver_user_id: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    Promise.all([getFinanceSettings(), listUsers()])
+      .then(([f, users]) => {
+        setForm({
+          bank_name: f.bank_name || '', account_name: f.account_name || '', account_number: f.account_number || '',
+          approval_threshold: String(f.approval_threshold ?? 100000), approver_user_id: f.approver?.id || '',
+        })
+        setAdmins(users.filter((u) => u.role === 'admin').map((u) => ({ id: u.id, name: u.name })))
+      })
+      .catch(() => setError('Could not load estate money settings'))
+      .finally(() => setLoaded(true))
+  }, [])
+
+  async function save(e: FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    setSaved(false)
+    try {
+      await updateFinanceSettings({
+        bank_name: form.bank_name, account_name: form.account_name, account_number: form.account_number,
+        approval_threshold: Number(form.approval_threshold) || 0, approver_user_id: form.approver_user_id || null,
+      })
+      setSaved(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="card p-6 space-y-4" aria-labelledby="fin-h">
+      <div>
+        <h3 id="fin-h" className="font-display font-semibold text-midnight-900">Estate money</h3>
+        <p className="text-sm text-midnight-400 mt-1">Where residents pay, and who must approve big spending. Money goes straight to this account; NexHood never holds it.</p>
+      </div>
+      {!loaded ? <Spinner className="h-5 w-5 text-royal" /> : (
+        <>
+          {error && <p className="text-sm text-alert-600" role="alert">{error}</p>}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="f-bank">Bank</label>
+              <input id="f-bank" className="input" value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="e.g. GTBank" />
+            </div>
+            <div>
+              <label className="label" htmlFor="f-acn">Account number</label>
+              <input id="f-acn" className="input" inputMode="numeric" value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="label" htmlFor="f-acname">Account name</label>
+            <input id="f-acname" className="input" value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} placeholder="Maraba Estate Residents Association" />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="f-th">Approval needed from (₦)</label>
+              <input id="f-th" className="input" type="number" min={0} value={form.approval_threshold} onChange={(e) => setForm({ ...form, approval_threshold: e.target.value })} />
+            </div>
+            <div>
+              <label className="label" htmlFor="f-ap">Who approves big spending</label>
+              <select id="f-ap" className="input" value={form.approver_user_id} onChange={(e) => setForm({ ...form, approver_user_id: e.target.value })}>
+                <option value="">Any other admin</option>
+                {admins.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-midnight-400">
+            Spending at or above the limit waits for the approver before it shows in the estate statement. If the approver records it themselves, it's marked so residents can see that too.
+          </p>
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={saving} className="btn-primary">{saving ? <Spinner className="h-4 w-4" /> : 'Save'}</button>
+            {saved && <span className="text-sm text-emerald-700">Saved</span>}
+          </div>
+        </>
+      )}
+    </form>
   )
 }

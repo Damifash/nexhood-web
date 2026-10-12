@@ -240,6 +240,14 @@ export interface AdminDashboard {
 }
 
 export interface ResidentDashboard {
+  role?: string
   summary: DashboardSummary
   recentIncidents: Incident[]
+  estate_open_alerts?: { id: string; type: string; status: string; created_at: string; sender_name?: string; message?: string | null }[]
+  open_repairs?: number
+  // residents
+  my_passes?: VisitorPass[]
+  bills?: { has_unit: boolean; balance_due: number; overdue_bills: number; credit: number }
+  // guards / police
+  gate?: { expected: VisitorPass[]; arrived: VisitorPass[] }
 }
