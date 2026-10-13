@@ -237,7 +237,7 @@ export default function Landing() {
         {/* Hero */}
         <section ref={heroRef} className="relative overflow-hidden bg-midnight-900 text-warm">
           <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ background: 'radial-gradient(60rem 30rem at 70% 110%, rgba(0,19,158,.55), transparent 60%)' }} />
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-6 grid lg:grid-cols-[1.15fr_.85fr] gap-10 lg:gap-14 items-center">
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-6 grid grid-cols-1 lg:grid-cols-[1.15fr_.85fr] gap-10 lg:gap-14 items-center">
             <div>
               <span className="rise inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-1.5 text-xs font-semibold text-steel-100" style={{ animationDelay: '.1s' }}>
                 <span className="pulse-dot h-2 w-2 rounded-full bg-emerald-400" /> Live in estates across Abuja
@@ -464,8 +464,13 @@ function HeroCard() {
   }, [reduced])
   const item = TICKER[i]
   return (
-    <div className="rise relative mx-auto w-full max-w-sm" style={{ animationDelay: '.6s' }} aria-hidden="true">
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-4 shadow-2xl backdrop-blur">
+    <div className="rise relative mx-auto w-full max-w-sm min-w-0" style={{ animationDelay: '.6s' }} aria-hidden="true">
+      {/* Sits above the card in normal flow, overlapping only the frame's padding, never the pass itself. */}
+      <div className="relative z-10 -mb-3 ml-auto mr-3 flex w-fit items-center gap-2.5 rounded-2xl bg-white text-midnight-900 shadow-xl px-3.5 py-2.5">
+        <span className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><Wallet className="h-4 w-4" /></span>
+        <span className="text-xs leading-tight"><span className="block font-semibold">₦150,000 received</span><span className="text-midnight-400">House 14 · service charge</span></span>
+      </div>
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-4 pt-6 shadow-2xl backdrop-blur">
         <div className="rounded-3xl bg-warm text-midnight-900 p-5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-midnight-400">Visitor pass</p>
@@ -481,10 +486,6 @@ function HeroCard() {
               Show this at the gate.<br />Code <span className="font-mono font-semibold text-midnight-900">K7QM</span>
             </div>
           </div>
-        </div>
-        <div className="hidden sm:flex absolute -left-10 top-[46%] items-center gap-2.5 rounded-2xl bg-white text-midnight-900 shadow-xl px-3.5 py-2.5">
-          <span className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><Wallet className="h-4 w-4" /></span>
-          <span className="text-xs leading-tight"><span className="block font-semibold">₦150,000 received</span><span className="text-midnight-400">House 14 · service charge</span></span>
         </div>
         <div key={i} className="ticker-in mt-3 flex items-center gap-2.5 rounded-2xl bg-midnight-900/70 border border-white/10 px-4 py-3">
           <item.icon className={`h-4 w-4 shrink-0 ${item.tone}`} />
