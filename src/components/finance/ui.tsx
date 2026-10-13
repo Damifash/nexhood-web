@@ -22,7 +22,7 @@ export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; on
           type="button"
           aria-selected={value === t.key}
           onClick={() => onChange(t.key)}
-          className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-400 ${
+          className={`shrink-0 rounded-full px-3.5 sm:px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-royal-400 ${
             value === t.key ? 'bg-midnight-900 text-warm' : 'bg-white border border-midnight-200 text-midnight-600 hover:border-midnight-300'
           }`}
         >

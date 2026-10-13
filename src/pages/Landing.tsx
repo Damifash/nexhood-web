@@ -69,6 +69,7 @@ const TICKER = [
   { icon: QrCode, text: 'Gate 1 · 4:32pm · Visitor verified', tone: 'text-emerald-300' },
   { icon: ClipboardCheck, text: 'House 9 · Delivery pass created', tone: 'text-steel-200' },
   { icon: Bell, text: 'Alert acknowledged · 3 guards · 14s', tone: 'text-amber-300' },
+  { icon: Wallet, text: 'House 14 · Service charge paid · ₦150,000', tone: 'text-emerald-300' },
   { icon: MessagesSquare, text: 'Estate meeting posted · Saturday 10am', tone: 'text-steel-200' },
 ]
 
@@ -78,31 +79,24 @@ const STEPS = [
   { title: 'Everyone’s on record', body: 'Every entry is logged, so the estate knows who came in and when. No more guesswork.', icon: ClipboardCheck },
 ]
 
-const FEATURES = [
-  { icon: Siren, title: 'Panic button and alerts', body: 'One tap reaches every guard on shift and the estate admin, with police escalation built in.', tags: ['Resident', 'Guard', 'Police'], urgent: true },
-  { icon: ClipboardCheck, title: 'Incident reports', body: 'Report what happened with up to four photos, then follow it from open to resolved.', tags: ['Resident', 'Admin'] },
-  { icon: MessagesSquare, title: 'Estate forum and events', body: 'Meetings, notices and events in one place, emailed to everyone who needs them.', tags: ['Resident', 'Admin'] },
-  { icon: HeartHandshake, title: 'Welfare fund', body: 'Residents support the guards who look after them, with every contribution on record.', tags: ['Resident', 'Guard'] },
-  { icon: PhoneCall, title: 'Guard and emergency directory', body: 'The right number for the gate, the admin and emergencies, one tap away.', tags: ['Resident', 'Guard'] },
-  { icon: BarChart3, title: 'Admin analytics', body: 'Visitor volume, incident trends and response times, so you can act early.', tags: ['Admin'] },
-]
-
-// New in NexHood (Oct 2026). Keep this list to what is actually live.
-const NEW_FEATURES = [
-  { icon: Receipt, title: 'Service charge bills', body: 'Set the charge once, with different prices for 3-bed and 4-bed if you need. NexHood bills every house, emails it, and shows who has paid.' },
-  { icon: Wallet, title: 'Pay without the WhatsApp wahala', body: 'Residents see the estate account, pay by transfer and tap “I paid” with a screenshot. The admin confirms in one tap and the bill clears. Overpay, and it’s kept for next time.' },
-  { icon: Landmark, title: 'Where the money went', body: 'Every expense is recorded with its receipt. Big spends need the approver’s OK. Every resident sees a monthly statement of money in and money out.' },
-  { icon: Wrench, title: 'Repairs board', body: 'Leaking roof, dead street light, broken gate. Report it with photos, neighbours tap “me too”, and everyone can follow it until it’s fixed.' },
-  { icon: BellDot, title: 'Nothing missed', body: 'A red dot on alerts, incidents, bills and posts the moment something new happens, for residents, guards and admins.' },
-  { icon: ShieldCheck, title: 'Each role sees only its part', body: 'Residents and admins see the estate’s money. Guards see the gate and alerts. Police see only what’s escalated to them.' },
+// The small cards under the big feature tiles. Only things that are live.
+const MORE_FEATURES = [
+  { icon: ClipboardCheck, title: 'Incident reports', body: 'Photos, status and follow-up until it’s resolved.' },
+  { icon: Wrench, title: 'Repairs board', body: 'Report a leak or dead street light. Neighbours tap “me too”.' },
+  { icon: MessagesSquare, title: 'Notices and events', body: 'Meetings and announcements, emailed to everyone.' },
+  { icon: HeartHandshake, title: 'Guard welfare fund', body: 'Residents support the guards who keep them safe.' },
+  { icon: PhoneCall, title: 'One-tap directory', body: 'The gate, the admin and emergency numbers.' },
+  { icon: BellDot, title: 'Nothing missed', body: 'A red dot the moment something new happens.' },
+  { icon: BarChart3, title: 'Admin analytics', body: 'Visitors, incidents and response times at a glance.' },
+  { icon: ShieldCheck, title: 'Each role sees its part', body: 'Guards and police never see the estate’s money.' },
 ]
 
 const ROLES: { key: string; label: string; screen: { title: string; rows: string[] }; points: string[] }[] = [
   {
     key: 'resident',
     label: 'Resident',
-    screen: { title: 'Visitor pass', rows: ['Chidi · Today 4:00–6:00pm', 'Share on WhatsApp', 'Panic button'] },
-    points: ['Create a visitor pass in seconds and send it on WhatsApp', 'Hit the panic button and every guard on shift knows', 'Report incidents with photos and follow them to resolution'],
+    screen: { title: 'Home', rows: ['Chidi · Today 4:00–6:00pm', 'Service charge · ₦150,000', 'Panic button'] },
+    points: ['Create a visitor pass in seconds and send it on WhatsApp', 'Hit the panic button and every guard on shift knows', 'See your bills, pay the estate account and see where the money went'],
   },
   {
     key: 'guard',
@@ -114,7 +108,7 @@ const ROLES: { key: string; label: string; screen: { title: string; rows: string
     key: 'admin',
     label: 'Admin / manager',
     screen: { title: 'Overview', rows: ['Visitors today · 38', 'Payments to confirm · 3', 'Collected this month · ₦3.1m'] },
-    points: ['Invite residents, guards and police with one link each', 'Bill every unit, take payments online and publish the monthly statement', 'See every incident, alert, visitor and repair in one dashboard'],
+    points: ['Invite residents, guards and police with one link each', 'Bill every house, confirm payments and remind those who owe', 'Record spending with receipts so the monthly statement writes itself'],
   },
   {
     key: 'police',
@@ -190,7 +184,6 @@ export default function Landing() {
   const navLinks = [
     { href: '#how', label: 'How it works' },
     { href: '#features', label: 'Features' },
-    { href: '#new', label: 'Bills & accounts' },
     { href: '#roles', label: 'For every role' },
     { href: '#faq', label: 'FAQ' },
   ]
@@ -253,7 +246,7 @@ export default function Landing() {
                 {headline}
               </h1>
               <p className="rise mt-5 text-base sm:text-lg text-steel-200 max-w-xl leading-relaxed" style={{ animationDelay: '.4s' }}>
-                QR visitor passes, a panic button that reaches security and the police, and now service charge bills and open estate accounts that every resident can see. Live in Abuja today.
+                QR visitor passes, a panic button that reaches security and the police, and service charge with accounts every resident can see. One app for residents, guards and the estate admin.
               </p>
               <div className="rise mt-8 flex flex-col sm:flex-row gap-3" style={{ animationDelay: '.55s' }}>
                 <button type="button" onClick={() => goToWaitlist()} className="btn-alert press alert-once text-base px-7 py-3">
@@ -263,7 +256,12 @@ export default function Landing() {
                   I manage an estate
                 </button>
               </div>
-              <p className="rise mt-4 text-xs text-steel-300" style={{ animationDelay: '.7s' }}>
+              <ul className="rise mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-steel-200" style={{ animationDelay: '.65s' }}>
+                {['Works with your current guards', 'Invite-only for each estate', 'Money goes to the estate account'].map((t) => (
+                  <li key={t} className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" /> {t}</li>
+                ))}
+              </ul>
+              <p className="rise mt-4 text-xs text-steel-300" style={{ animationDelay: '.75s' }}>
                 Already on NexHood? <Link to="/login" className="underline hover:text-warm">Log in</Link>
               </p>
             </div>
@@ -315,74 +313,7 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* Features */}
-        <section id="features" className="bg-midnight-900 text-warm py-16 sm:py-24 scroll-mt-20">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <Reveal className="max-w-2xl">
-              <SectionLabel dark>More than a gate</SectionLabel>
-              <h2 className="mt-2 font-display text-3xl sm:text-4xl font-semibold">Everything your estate needs to look out for each other.</h2>
-            </Reveal>
-            <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {FEATURES.map((f) => (
-                <Reveal key={f.title} className={`rounded-2xl p-6 border ${f.urgent ? 'bg-alert/10 border-alert/30' : 'bg-white/[0.04] border-white/10'}`}>
-                  <span className={`h-11 w-11 rounded-xl flex items-center justify-center ${f.urgent ? 'bg-alert text-warm' : 'bg-white/10 text-steel-100'}`}>
-                    <f.icon className="h-5 w-5" />
-                  </span>
-                  <h3 className="mt-4 font-display text-lg font-semibold">{f.title}</h3>
-                  <p className="mt-2 text-sm text-steel-200 leading-relaxed">{f.body}</p>
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {f.tags.map((t) => (
-                      <span key={t} className="badge bg-white/10 text-steel-100 font-medium">{t}</span>
-                    ))}
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* What's new */}
-        <section id="new" className="py-16 sm:py-24 scroll-mt-20">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid lg:grid-cols-[1fr_1fr] gap-10 items-center">
-              <Reveal className="max-w-2xl">
-                <SectionLabel>New in NexHood</SectionLabel>
-                <h2 className="mt-2 font-display text-3xl sm:text-4xl font-semibold leading-tight">Service charge, paid and accounted for.</h2>
-                <p className="mt-4 text-midnight-500 leading-relaxed">
-                  The biggest fights in Nigerian estates are about service charge: who paid, and where the money went. NexHood now
-                  sends the bills, tracks every payment and shows every resident the estate’s accounts, month by month.
-                </p>
-                <ol className="mt-6 space-y-3 text-sm">
-                  {[
-                    ['Admin sends the bill', 'Every house gets it in the app and by email.'],
-                    ['Resident pays the estate account', 'Then taps “I paid” and adds the screenshot.'],
-                    ['Admin confirms in one tap', 'The bill clears and the statement updates for everyone.'],
-                  ].map(([t, b], i) => (
-                    <li key={t} className="flex gap-3">
-                      <span className="h-7 w-7 shrink-0 rounded-full bg-royal text-warm text-xs font-semibold flex items-center justify-center">{i + 1}</span>
-                      <span><span className="font-semibold text-midnight-900">{t}.</span> <span className="text-midnight-500">{b}</span></span>
-                    </li>
-                  ))}
-                </ol>
-              </Reveal>
-              <Reveal className="grid sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4 items-start">
-                <BillMock />
-                <StatementMock />
-              </Reveal>
-            </div>
-            <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {NEW_FEATURES.map((f) => (
-                <Reveal key={f.title} className="card p-6 h-full">
-                  <span className="h-11 w-11 rounded-xl bg-royal-50 text-royal flex items-center justify-center">
-                    <f.icon className="h-5 w-5" />
-                  </span>
-                  <h3 className="mt-4 font-display text-lg font-semibold">{f.title}</h3>
-                  <p className="mt-2 text-sm text-midnight-500 leading-relaxed">{f.body}</p>
-                </Reveal>
-              ))}
-            </div>
-          </div>
-        </section>
+        <FeaturesSection />
 
         {/* Roles */}
         <section id="roles" className="py-16 sm:py-24 scroll-mt-20">
@@ -551,6 +482,10 @@ function HeroCard() {
             </div>
           </div>
         </div>
+        <div className="hidden sm:flex absolute -left-10 top-[46%] items-center gap-2.5 rounded-2xl bg-white text-midnight-900 shadow-xl px-3.5 py-2.5">
+          <span className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><Wallet className="h-4 w-4" /></span>
+          <span className="text-xs leading-tight"><span className="block font-semibold">₦150,000 received</span><span className="text-midnight-400">House 14 · service charge</span></span>
+        </div>
         <div key={i} className="ticker-in mt-3 flex items-center gap-2.5 rounded-2xl bg-midnight-900/70 border border-white/10 px-4 py-3">
           <item.icon className={`h-4 w-4 shrink-0 ${item.tone}`} />
           <p className="text-sm text-warm truncate">{item.text}</p>
@@ -561,21 +496,113 @@ function HeroCard() {
   )
 }
 
+export function FeaturesSection() {
+  return (
+    <section id="features" className="bg-midnight-900 text-warm py-16 sm:py-24 scroll-mt-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <Reveal className="max-w-2xl">
+          <SectionLabel dark>Features</SectionLabel>
+          <h2 className="mt-2 font-display text-3xl sm:text-4xl font-semibold leading-tight">Everything your estate runs on, in one place.</h2>
+          <p className="mt-4 text-steel-200 leading-relaxed">
+            The gate, emergencies, service charge and the estate’s accounts. No more scattered WhatsApp groups, phone calls and Excel sheets.
+          </p>
+        </Reveal>
+
+        <div className="mt-10 grid lg:grid-cols-3 gap-4">
+          {/* Panic + alerts */}
+          <Reveal className="lg:col-span-2 rounded-3xl border border-alert/30 bg-alert/10 p-6 sm:p-8 grid sm:grid-cols-2 gap-6 items-center">
+            <div>
+              <span className="h-11 w-11 rounded-xl bg-alert text-warm flex items-center justify-center"><Siren className="h-5 w-5" /></span>
+              <h3 className="mt-4 font-display text-xl sm:text-2xl font-semibold">Panic button that reaches everyone</h3>
+              <p className="mt-2 text-sm text-steel-200 leading-relaxed">One tap alerts every guard on shift and the admin. A guard acknowledges so you know help is coming, and the police can be notified in one more tap.</p>
+            </div>
+            <AlertFeedMock />
+          </Reveal>
+
+          {/* Visitor passes */}
+          <Reveal className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
+            <span className="h-11 w-11 rounded-xl bg-white/10 text-steel-100 flex items-center justify-center"><QrCode className="h-5 w-5" /></span>
+            <h3 className="mt-4 font-display text-xl font-semibold">QR visitor passes</h3>
+            <p className="mt-2 text-sm text-steel-200 leading-relaxed">Create a pass, send it on WhatsApp, and the guard scans it at the gate. Every entry is on record.</p>
+            <div className="mt-5 flex items-center gap-3 rounded-2xl bg-white/[0.06] border border-white/10 p-3">
+              <span className="h-10 w-10 rounded-lg bg-warm p-1.5"><span className="block h-full w-full rounded-sm bg-[repeating-linear-gradient(90deg,#071456_0_3px,transparent_3px_6px),repeating-linear-gradient(0deg,#071456_0_3px,transparent_3px_6px)]" /></span>
+              <span className="text-sm"><span className="block font-semibold">Chidi · House 14</span><span className="text-emerald-300 text-xs">Verified at Gate 1 · 4:32pm</span></span>
+            </div>
+          </Reveal>
+
+          {/* Bills */}
+          <Reveal className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8">
+            <span className="h-11 w-11 rounded-xl bg-white/10 text-steel-100 flex items-center justify-center"><Receipt className="h-5 w-5" /></span>
+            <h3 className="mt-4 font-display text-xl font-semibold">Service charge and dues</h3>
+            <p className="mt-2 text-sm text-steel-200 leading-relaxed">Bill every house in one go. Residents pay the estate account, tap “I paid”, and the admin confirms. No chasing screenshots.</p>
+            <BillMock />
+          </Reveal>
+
+          {/* Accounts */}
+          <Reveal className="lg:col-span-2 rounded-3xl border border-white/10 bg-white/[0.04] p-6 sm:p-8 grid sm:grid-cols-[.9fr_1.1fr] gap-6 items-center">
+            <div>
+              <span className="h-11 w-11 rounded-xl bg-white/10 text-steel-100 flex items-center justify-center"><Landmark className="h-5 w-5" /></span>
+              <h3 className="mt-4 font-display text-xl sm:text-2xl font-semibold">Accounts every resident can see</h3>
+              <p className="mt-2 text-sm text-steel-200 leading-relaxed">Every expense is recorded with its receipt, and big spends need the approver’s OK. Each month residents see what came in, what went out and what’s left.</p>
+              <p className="mt-3 text-xs text-steel-300">NexHood never holds your money. It goes to the estate’s own account.</p>
+            </div>
+            <StatementMock />
+          </Reveal>
+        </div>
+
+        <ul className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {MORE_FEATURES.map((f) => (
+            <li key={f.title}>
+              <Reveal className="h-full rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+                <f.icon className="h-5 w-5 text-steel-100" />
+                <h3 className="mt-3 font-display text-sm sm:text-base font-semibold">{f.title}</h3>
+                <p className="mt-1 text-xs sm:text-sm text-steel-300 leading-relaxed">{f.body}</p>
+              </Reveal>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}
+
+// Illustrative only: a live alert as guards see it.
+function AlertFeedMock() {
+  const rows = [
+    { t: '9:41pm', text: 'Panic alert · House 9', tone: 'bg-alert text-warm' },
+    { t: '+12s', text: 'Mike (Gate 1) acknowledged', tone: 'bg-white/10 text-warm' },
+    { t: '+40s', text: 'Police notified with location', tone: 'bg-white/10 text-warm' },
+    { t: '+6m', text: 'Resolved · resident safe', tone: 'bg-emerald-500/15 text-emerald-300' },
+  ]
+  return (
+    <ol className="space-y-2" aria-label="Example alert timeline">
+      {rows.map((r) => (
+        <li key={r.text} className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm ${r.tone}`}>
+          <span className="w-12 shrink-0 text-xs tabular-nums opacity-80">{r.t}</span>
+          <span className="font-medium">{r.text}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 // Illustrative only: mirrors the resident's Bills screen in the app.
 function BillMock() {
   return (
-    <figure className="card p-5" aria-label="Example of a resident's bill in the app">
-      <p className="text-xs font-semibold uppercase tracking-wide text-midnight-400">You owe · example</p>
-      <p className="mt-1 font-display text-3xl font-semibold tabular-nums">₦150,000</p>
-      <p className="text-xs text-midnight-400">House 14 · Service charge Q4</p>
-      <div className="mt-4 rounded-xl bg-midnight-50/70 px-3.5 py-3 text-xs">
-        <p className="font-semibold uppercase tracking-wide text-midnight-400">Pay the estate account</p>
-        <p className="mt-1 font-semibold text-midnight-900 text-sm">Estate Residents Association</p>
-        <p className="text-midnight-600">Bank · <span className="font-mono font-semibold">0123456789</span></p>
+    <div className="mt-5 rounded-2xl bg-warm text-midnight-900 p-4" aria-label="Example of a resident's bill">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-midnight-400">You owe</p>
+          <p className="font-display text-2xl font-semibold tabular-nums">₦150,000</p>
+          <p className="text-xs text-midnight-400">House 14 · Service charge Q4</p>
+        </div>
+        <span className="badge bg-amber-50 text-amber-700">Due 31 Dec</span>
       </div>
-      <span className="mt-4 btn-alert w-full pointer-events-none" aria-hidden="true">I paid by transfer</span>
-      <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Admin confirms, bill clears, receipt by email</p>
-    </figure>
+      <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-midnight-50 px-3 py-2 text-xs">
+        <span className="text-midnight-600 truncate">Estate account · <span className="font-mono font-semibold text-midnight-900">0123456789</span></span>
+        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+      </div>
+    </div>
   )
 }
 
@@ -588,31 +615,28 @@ function StatementMock() {
     { label: 'Waste and cleaning', value: 160_000, w: 6, color: '#eda100' },
   ]
   return (
-    <figure className="card p-5 sm:p-6" aria-label="Example monthly statement">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-midnight-400">Monthly statement · example</p>
-          <p className="mt-1 font-display text-lg font-semibold">Where the money went</p>
-        </div>
-        <span className="badge bg-emerald-50 text-emerald-700">Visible to all residents</span>
+    <figure className="rounded-2xl bg-warm text-midnight-900 p-4 sm:p-5" aria-label="Example monthly statement">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-midnight-400">October statement · example</p>
+        <span className="badge bg-emerald-50 text-emerald-700">All residents</span>
       </div>
-      <dl className="mt-5 grid grid-cols-3 gap-3 text-sm">
-        <div><dt className="text-midnight-400 text-xs">Collected</dt><dd className="font-display text-lg font-semibold tabular-nums">₦3.1m</dd></div>
-        <div><dt className="text-midnight-400 text-xs">Spent</dt><dd className="font-display text-lg font-semibold tabular-nums">₦2.67m</dd></div>
-        <div><dt className="text-midnight-400 text-xs">Balance</dt><dd className="font-display text-lg font-semibold tabular-nums text-emerald-700">₦430k</dd></div>
+      <dl className="mt-3 grid grid-cols-3 gap-2">
+        <div><dt className="text-midnight-400 text-[11px]">Collected</dt><dd className="font-display text-base sm:text-lg font-semibold tabular-nums">₦3.1m</dd></div>
+        <div><dt className="text-midnight-400 text-[11px]">Spent</dt><dd className="font-display text-base sm:text-lg font-semibold tabular-nums">₦2.67m</dd></div>
+        <div><dt className="text-midnight-400 text-[11px]">Balance</dt><dd className="font-display text-base sm:text-lg font-semibold tabular-nums text-emerald-700">₦430k</dd></div>
       </dl>
-      <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full gap-0.5" aria-hidden="true">
+      <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full gap-0.5" aria-hidden="true">
         {rows.map((r) => <span key={r.label} style={{ width: `${r.w}%`, background: r.color }} />)}
       </div>
-      <ul className="mt-4 space-y-2 text-sm">
+      <ul className="mt-3 space-y-1.5 text-xs sm:text-sm">
         {rows.map((r) => (
           <li key={r.label} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-midnight-600"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: r.color }} />{r.label}</span>
+            <span className="flex items-center gap-2 text-midnight-600"><span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: r.color }} />{r.label}</span>
             <span className="tabular-nums font-medium">₦{r.value.toLocaleString('en-NG')}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-xs text-midnight-400 flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5" /> Every line has a receipt. Spends over ₦100,000 need the approver.</p>
+      <p className="mt-3 text-[11px] text-midnight-400 flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5 shrink-0" /> Receipt on every line</p>
     </figure>
   )
 }
