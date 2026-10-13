@@ -259,7 +259,7 @@ function WaitlistSuccess({ result }: { result: WaitlistResult & { firstName: str
   const link = `${window.location.origin}/?ref=${encodeURIComponent(result.ref_code)}#waitlist`
   const message =
     `I just joined the NexHood waitlist for ${result.estate}. ` +
-    `It's estate security that works together: QR passes for visitors at the gate and a panic button that reaches security and police. ` +
+    `It's security that works together: QR passes at the gate, a panic button that reaches security and police, and open accounts for service charge. ` +
     `Estates move up the list when more neighbours join: ${link}`
   const wa = `https://wa.me/?text=${encodeURIComponent(message)}`
   const others = Math.max(0, (result.estate_count || 0))

@@ -41,10 +41,10 @@ export function Money({ value, className = '' }: { value: number; className?: st
 export function Stat({ label, children, hint, tone = 'neutral' }: { label: string; children: ReactNode; hint?: string; tone?: 'neutral' | 'good' | 'bad' }) {
   const toneCls = tone === 'good' ? 'text-emerald-700' : tone === 'bad' ? 'text-alert-700' : 'text-midnight-900'
   return (
-    <div className="card p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-midnight-400">{label}</p>
-      <p className={`mt-1.5 font-display text-2xl font-semibold ${toneCls}`}>{children}</p>
-      {hint && <p className="mt-1 text-xs text-midnight-400">{hint}</p>}
+    <div className="card p-4 sm:p-5 min-w-0">
+      <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-midnight-400 truncate">{label}</p>
+      <p className={`mt-1.5 font-display text-xl sm:text-2xl font-semibold tabular-nums break-words ${toneCls}`}>{children}</p>
+      {hint && <p className="mt-1 text-[11px] sm:text-xs text-midnight-400">{hint}</p>}
     </div>
   )
 }

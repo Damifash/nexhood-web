@@ -3,9 +3,11 @@ import { LogOut } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { NAV_ITEMS } from './navConfig'
 import { useAuth } from '@/context/AuthContext'
+import { useNotifications } from '@/context/NotificationsContext'
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth()
+  const { badgeFor } = useNotifications()
   if (!user) return null
 
   const items = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user.role))
@@ -29,7 +31,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             }
           >
             <item.icon className="h-[18px] w-[18px]" strokeWidth={2} />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {item.section && <NavBadge {...badgeFor(item.section)} />}
           </NavLink>
         ))}
       </nav>
@@ -46,5 +49,17 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </button>
       </div>
     </div>
+  )
+}
+
+function NavBadge({ n, urgent }: { n: number; urgent: boolean }) {
+  if (!n) return null
+  return (
+    <span
+      className={`min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold leading-5 text-center text-white ${urgent ? 'bg-alert animate-pulse' : 'bg-alert'}`}
+      aria-label={urgent ? `${n} need${n === 1 ? 's' : ''} your action` : `${n} new`}
+    >
+      {n > 99 ? '99+' : n}
+    </span>
   )
 }

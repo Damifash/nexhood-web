@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Banknote, Building2, Eye, Home, Plus, Receipt, Send, Upload, Wallet } from 'lucide-react'
+import { ArrowRight, Banknote, BellRing, Building2, Check, CreditCard, Eye, Home, Plus, Receipt, Send, Tags, Upload, Wallet } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { listUsers } from '@/lib/api'
 import type { User } from '@/lib/types'
 import {
   CHARGE_LABEL, confirmPayment, createCharge, createPayment, createUnit, currentMonth, getArrears, getFinanceSettings, getMyFinance,
   getPaymentProof, getStatement, importUnits, issueBills, listCharges, listInvoices, listPayments, listUnits, monthLabel, rejectPayment,
-  updateCharge, updateUnit, voidInvoice,
-  type ArrearsRow, type Charge, type ChargeCategory, type FinanceSettings, type Invoice, type MyFinance, type Payment, type Statement, type Unit,
+  updateCharge, updateUnit, voidInvoice, getPaystackStatus, quotePaystack, startPaystack, verifyPaystack, getFinanceSetup, sendReminders, updateFinanceSettings,
+  type FinanceSetup,
+  type PaystackStatus, type ArrearsRow, type Charge, type ChargeCategory, type Invoice, type MyFinance, type Payment, type Statement, type Unit,
 } from '@/lib/finance'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Modal } from '@/components/ui/Modal'
@@ -16,12 +17,12 @@ import { Badge } from '@/components/ui/Badge'
 import { CopyText, ErrorBox, ImagePicker, Money, Stat, Tabs, formatDate } from '@/components/finance/ui'
 
 const STATUS_TONE: Record<string, 'success' | 'warning' | 'alert' | 'neutral' | 'steel'> = {
-  paid: 'success', part_paid: 'warning', unpaid: 'alert', void: 'steel', pending: 'warning', confirmed: 'success', rejected: 'alert',
+  paid: 'success', part_paid: 'warning', unpaid: 'alert', void: 'steel', pending: 'warning', confirmed: 'success', rejected: 'alert', failed: 'steel',
 }
 const STATUS_LABEL: Record<string, string> = {
-  paid: 'Paid', part_paid: 'Part paid', unpaid: 'Unpaid', void: 'Cancelled', pending: 'Waiting for confirmation', confirmed: 'Confirmed', rejected: 'Not received',
+  paid: 'Paid', part_paid: 'Part paid', unpaid: 'Unpaid', void: 'Cancelled', pending: 'Waiting for confirmation', confirmed: 'Confirmed', rejected: 'Not received', failed: 'Did not go through',
 }
-const METHOD_LABEL: Record<string, string> = { bank_transfer: 'Bank transfer', cash: 'Cash', pos: 'POS', paystack: 'Online' }
+const METHOD_LABEL: Record<string, string> = { bank_transfer: 'Bank transfer', cash: 'Cash', pos: 'POS', paystack: 'Online (Paystack)' }
 
 export default function Payments() {
   const { user } = useAuth()
@@ -38,21 +39,46 @@ function ResidentBills() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [payOpen, setPayOpen] = useState<Invoice | 'any' | null>(null)
+  const [onlineOpen, setOnlineOpen] = useState<Invoice | 'any' | null>(null)
+  const [ps, setPs] = useState<PaystackStatus | null>(null)
+  const [banner, setBanner] = useState<{ tone: 'good' | 'bad' | 'wait'; text: string } | null>(null)
 
   async function load() {
     setLoading(true)
     try {
-      const [m, inv, pay] = await Promise.all([getMyFinance(), listInvoices(), listPayments()])
+      const [m, inv, pay, st] = await Promise.all([getMyFinance(), listInvoices(), listPayments(), getPaystackStatus().catch(() => null)])
       setMe(m)
       setInvoices(inv)
       setPayments(pay)
+      setPs(st)
     } finally {
       setLoading(false)
     }
   }
   useEffect(() => {
-    load()
+    // Back from Paystack's checkout: ?reference=NXH-... — confirm it, then reload.
+    const params = new URLSearchParams(window.location.search)
+    const ref = params.get('reference') || params.get('trxref')
+    if (ref) {
+      setBanner({ tone: 'wait', text: 'Checking your payment with Paystack…' })
+      window.history.replaceState({}, '', window.location.pathname)
+      verifyPaystack(ref)
+        .then((r) =>
+          setBanner(
+            r.status === 'confirmed'
+              ? { tone: 'good', text: 'Payment received. Your bill has been updated and a receipt is on its way to your email.' }
+              : r.status === 'pending'
+                ? { tone: 'wait', text: "Paystack is still processing your payment. It'll update here automatically in a few minutes." }
+                : { tone: 'bad', text: "That payment didn't go through. No money was taken for this bill. You can try again." },
+          ),
+        )
+        .catch(() => setBanner({ tone: 'wait', text: "We'll update your bill as soon as Paystack confirms the payment." }))
+        .finally(load)
+    } else {
+      load()
+    }
   }, [])
+  const canPayOnline = !!ps?.enabled && !!ps?.connected
 
   const due = me?.units.reduce((s, u) => s + u.balance_due, 0) ?? 0
   const credit = me?.units.reduce((s, u) => s + u.credit, 0) ?? 0
@@ -64,6 +90,11 @@ function ResidentBills() {
   return (
     <div>
       <PageHeader title="Bills & payments" subtitle="What you owe your estate, and everything you've paid." />
+      {banner && (
+        <div role="status" className={`mb-5 rounded-xl px-4 py-3 text-sm ${banner.tone === 'good' ? 'bg-emerald-50 text-emerald-800' : banner.tone === 'bad' ? 'bg-alert-50 text-alert-700' : 'bg-amber-50 text-amber-800'}`}>
+          {banner.text}
+        </div>
+      )}
       {me && me.units.length === 0 ? (
         <div className="card p-8 text-center">
           <Home className="h-8 w-8 mx-auto text-royal" />
@@ -84,9 +115,16 @@ function ResidentBills() {
                   {me?.pending_payments ? ` · ${me.pending_payments} payment${me.pending_payments === 1 ? '' : 's'} waiting for confirmation` : ''}
                 </p>
               </div>
-              <button className="btn-alert press px-6 py-3 text-base" onClick={() => setPayOpen('any')}>
-                <Send className="h-4 w-4" /> I've paid
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                {canPayOnline && due > 0 && (
+                  <button className="btn-alert press px-6 py-3 text-base w-full sm:w-auto" onClick={() => setOnlineOpen('any')}>
+                    <CreditCard className="h-4 w-4" /> Pay now
+                  </button>
+                )}
+                <button className={`${canPayOnline && due > 0 ? 'btn-outline' : 'btn-alert'} press px-6 py-3 text-base w-full sm:w-auto`} onClick={() => setPayOpen('any')}>
+                  <Send className="h-4 w-4" /> {canPayOnline && due > 0 ? 'I paid by transfer' : 'Pay by transfer'}
+                </button>
+              </div>
             </div>
             <Stat label="Estate balance (credit)" hint="Overpayments are kept here and used on your next bill automatically.">
               <Money value={credit} />
@@ -116,7 +154,7 @@ function ResidentBills() {
             {open.length === 0 ? (
               <p className="px-6 pb-6 text-sm text-midnight-400">Nothing to pay right now.</p>
             ) : (
-              <InvoiceList items={open} onPay={(i) => setPayOpen(i)} />
+              <InvoiceList items={open} onPay={(i) => (canPayOnline ? setOnlineOpen(i) : setPayOpen(i))} />
             )}
           </section>
 
@@ -134,12 +172,24 @@ function ResidentBills() {
         </div>
       )}
 
+      {onlineOpen && (
+        <OnlinePayModal
+          invoice={onlineOpen === 'any' ? undefined : onlineOpen}
+          suggested={onlineOpen === 'any' ? due : onlineOpen.balance}
+          onClose={() => setOnlineOpen(null)}
+          onTransfer={() => {
+            setPayOpen(onlineOpen)
+            setOnlineOpen(null)
+          }}
+        />
+      )}
       {payOpen && (
         <PayModal
           onClose={() => setPayOpen(null)}
           invoice={payOpen === 'any' ? undefined : payOpen}
           suggested={payOpen === 'any' ? due : payOpen.balance}
           openInvoices={open}
+          bank={me?.bank}
           onDone={() => {
             setPayOpen(null)
             load()
@@ -150,7 +200,56 @@ function ResidentBills() {
   )
 }
 
-function PayModal({ onClose, invoice, suggested, openInvoices, onDone }: { onClose: () => void; invoice?: Invoice; suggested: number; openInvoices: Invoice[]; onDone: () => void }) {
+function OnlinePayModal({ invoice, suggested, onClose, onTransfer }: { invoice?: Invoice; suggested: number; onClose: () => void; onTransfer: () => void }) {
+  const [amount, setAmount] = useState(String(suggested || ''))
+  const [quote, setQuote] = useState<{ fee: number; total: number } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    const n = Number(amount)
+    if (!n || n < 100) {
+      setQuote(null)
+      return
+    }
+    const t = setTimeout(() => quotePaystack(n).then(setQuote).catch(() => setQuote(null)), 300)
+    return () => clearTimeout(t)
+  }, [amount])
+  async function go(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const r = await startPaystack(Number(amount), invoice?.id)
+      window.location.href = r.authorization_url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start payment')
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title={invoice ? `Pay: ${invoice.title}` : 'Pay online'}>
+      <form onSubmit={go} className="space-y-4">
+        <ErrorBox message={error} />
+        <div>
+          <label className="label" htmlFor="op-amt">Amount for your bills (₦)</label>
+          <input id="op-amt" required type="number" min={100} className="input" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+        {quote && (
+          <dl className="rounded-xl bg-midnight-50/70 p-4 text-sm space-y-1.5">
+            <div className="flex justify-between"><dt className="text-midnight-500">Goes to your estate</dt><dd><Money value={Number(amount)} /></dd></div>
+            <div className="flex justify-between"><dt className="text-midnight-500">Card / transfer fee</dt><dd><Money value={quote.fee} /></dd></div>
+            <div className="flex justify-between font-semibold text-midnight-900 border-t border-midnight-100 pt-1.5"><dt>You pay</dt><dd><Money value={quote.total} /></dd></div>
+          </dl>
+        )}
+        <p className="text-xs text-midnight-400">You'll pay on Paystack's secure page by card, bank transfer or USSD. The money goes straight to your estate's bank account and your bill updates automatically.</p>
+        <button type="submit" disabled={busy || !quote} className="btn-alert w-full py-3">{busy ? <Spinner className="h-4 w-4" /> : <>Continue to Paystack</>}</button>
+        <button type="button" className="w-full text-xs font-semibold text-royal hover:underline" onClick={onTransfer}>I'd rather pay by bank transfer (no fee)</button>
+      </form>
+    </Modal>
+  )
+}
+
+function PayModal({ onClose, invoice, suggested, openInvoices, onDone, bank }: { onClose: () => void; invoice?: Invoice; suggested: number; openInvoices: Invoice[]; onDone: () => void; bank?: MyFinance['bank'] }) {
   const [amount, setAmount] = useState(String(suggested || ''))
   const [method, setMethod] = useState<'bank_transfer' | 'cash' | 'pos'>('bank_transfer')
   const [reference, setReference] = useState('')
@@ -186,6 +285,19 @@ function PayModal({ onClose, invoice, suggested, openInvoices, onDone }: { onClo
       ) : (
         <form onSubmit={submit} className="space-y-4">
           <ErrorBox message={error} />
+          {bank?.account_number ? (
+            <div className="rounded-xl bg-midnight-50/70 px-4 py-3 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-midnight-400">1 · Transfer to</p>
+              <p className="mt-1 font-semibold text-midnight-900">{bank.account_name}</p>
+              <p className="text-midnight-600 flex flex-wrap items-center gap-x-2">
+                {bank.bank_name} · <span className="font-mono font-semibold text-midnight-900">{bank.account_number}</span>
+                <CopyText text={bank.account_number} label="account number" />
+              </p>
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-midnight-400">2 · Then tell your admin below</p>
+            </div>
+          ) : (
+            <p className="rounded-xl bg-amber-50 text-amber-800 text-xs px-3 py-2">Your estate hasn't added its bank details in NexHood yet. Pay the way your admin told you, then fill this in.</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label" htmlFor="pay-amt">Amount (₦)</label>
@@ -228,7 +340,7 @@ function InvoiceList({ items, onPay, onVoid, showUnit = false }: { items: Invoic
   return (
     <ul className="divide-y divide-midnight-50">
       {items.map((i) => (
-        <li key={i.id} className="px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <li key={i.id} className="px-5 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
             <p className="font-medium text-midnight-900 truncate">{showUnit ? `${i.unit_label} · ` : ''}{i.title}</p>
             <p className="text-xs text-midnight-400">
@@ -258,7 +370,7 @@ function PaymentList({ items, admin, onConfirm, onReject }: { items: Payment[]; 
     <>
       <ul className="divide-y divide-midnight-50">
         {items.map((p) => (
-          <li key={p.id} className="px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+          <li key={p.id} className="px-5 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <div className="min-w-0">
               <p className="font-medium text-midnight-900">
                 <Money value={p.amount} /> <span className="text-midnight-500 font-normal">· {METHOD_LABEL[p.method]}{admin ? ` · ${p.unit_label}${p.payer_name ? ` (${p.payer_name})` : ''}` : ''}</span>
@@ -270,7 +382,7 @@ function PaymentList({ items, admin, onConfirm, onReject }: { items: Payment[]; 
                 {p.status === 'rejected' && p.reject_reason ? ` · ${p.reject_reason}` : ''}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {p.has_proof && (
                 <button
                   className="inline-flex items-center gap-1 text-xs font-semibold text-royal hover:underline"
@@ -303,47 +415,104 @@ function PaymentList({ items, admin, onConfirm, onReject }: { items: Payment[]; 
 /* Admin                                                               */
 /* ------------------------------------------------------------------ */
 type AdminTab = 'overview' | 'confirm' | 'bills' | 'units'
+type Go = (tab: AdminTab, action?: 'new-charge' | 'new-unit') => void
 
 function AdminBills() {
   const [tab, setTab] = useState<AdminTab>('overview')
+  const [action, setAction] = useState<'new-charge' | 'new-unit' | null>(null)
   const [pendingCount, setPendingCount] = useState(0)
   useEffect(() => {
     listPayments({ status: 'pending' }).then((p) => setPendingCount(p.length)).catch(() => {})
   }, [tab])
+  const go: Go = (t, a) => {
+    setAction(a ?? null)
+    setTab(t)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   return (
     <div>
-      <PageHeader title="Bills & payments" subtitle="Bill your estate, confirm payments, and see who owes what." />
+      <PageHeader title="Bills & payments" subtitle="Bill every house, collect payments and see who owes." />
       <Tabs
         value={tab}
-        onChange={setTab}
+        onChange={(t) => go(t)}
         tabs={[
           { key: 'overview', label: 'Overview' },
-          { key: 'confirm', label: 'Payments to confirm', count: pendingCount },
+          { key: 'confirm', label: 'To confirm', count: pendingCount },
           { key: 'bills', label: 'Bills' },
-          { key: 'units', label: 'Houses / units' },
+          { key: 'units', label: 'Houses' },
         ]}
       />
-      {tab === 'overview' && <AdminOverview />}
+      {tab === 'overview' && <AdminOverview go={go} />}
       {tab === 'confirm' && <AdminConfirm onChanged={(n) => setPendingCount(n)} />}
-      {tab === 'bills' && <AdminCharges />}
-      {tab === 'units' && <AdminUnits />}
+      {tab === 'bills' && <AdminCharges autoNew={action === 'new-charge'} />}
+      {tab === 'units' && <AdminUnits autoNew={action === 'new-unit'} />}
     </div>
   )
 }
 
-function AdminOverview() {
+function SetupGuide({ setup, go, onBank, onTypes }: { setup: FinanceSetup; go: Go; onBank: () => void; onTypes: () => void }) {
+  const steps: { done: boolean; title: string; body: string; action: string; run: () => void; optional?: boolean }[] = [
+    { done: setup.bank, title: 'Add the estate bank account', body: 'Residents see it when they pay by transfer.', action: 'Add bank details', run: onBank },
+    { done: setup.units > 0, title: 'Add the houses', body: 'Bills go to each house, not each person.', action: 'Add houses', run: () => go('units', 'new-unit') },
+    { done: setup.charges > 0, title: 'Create a bill type', body: 'For example service charge, ₦600,000 a year.', action: 'Create bill type', run: () => go('bills', 'new-charge') },
+    ...(setup.units_untyped > 0
+      ? [{ done: false, title: `Set the type of ${setup.units_untyped} house${setup.units_untyped === 1 ? '' : 's'}`, body: `You have prices for ${setup.price_types.join(', ')}. Houses without a type are charged the standard price.`, action: 'Set house types', run: onTypes }]
+      : []),
+    { done: setup.invoices > 0, title: 'Send the first bills', body: 'Every house gets its bill by email and in the app.', action: 'Send bills', run: () => go('bills') },
+  ]
+  const left = steps.filter((s) => !s.done).length
+  if (left === 0) return null
+  const next = steps.findIndex((s) => !s.done)
+  return (
+    <section className="card p-5 sm:p-6" aria-labelledby="setup-h">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 id="setup-h" className="font-display font-semibold text-midnight-900">Get ready to collect</h3>
+          <p className="text-xs text-midnight-400 mt-0.5">{steps.length - left} of {steps.length} done</p>
+        </div>
+        <div className="h-2 w-24 rounded-full bg-midnight-50 overflow-hidden mt-2" aria-hidden="true">
+          <div className="h-full bg-royal rounded-full" style={{ width: `${((steps.length - left) / steps.length) * 100}%` }} />
+        </div>
+      </div>
+      <ol className="mt-4 space-y-2">
+        {steps.map((s, i) => (
+          <li key={s.title} className={`rounded-xl border px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 ${i === next ? 'border-royal-200 bg-royal-50/40' : 'border-midnight-100'}`}>
+            <span className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${s.done ? 'bg-emerald-500 text-white' : i === next ? 'bg-royal text-warm' : 'bg-midnight-100 text-midnight-500'}`}>
+              {s.done ? <Check className="h-3.5 w-3.5" /> : i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-semibold ${s.done ? 'text-midnight-400 line-through' : 'text-midnight-900'}`}>{s.title}</p>
+              {!s.done && <p className="text-xs text-midnight-500">{s.body}</p>}
+            </div>
+            {!s.done && (
+              <button type="button" onClick={s.run} className={`${i === next ? 'btn-primary' : 'btn-outline'} text-xs px-3 py-2 whitespace-nowrap self-start sm:self-auto`}>
+                {s.action} <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function AdminOverview({ go }: { go: Go }) {
   const [st, setSt] = useState<Statement | null>(null)
   const [arrears, setArrears] = useState<ArrearsRow[]>([])
-  const [fin, setFin] = useState<FinanceSettings | null>(null)
+  const [setup, setSetup] = useState<FinanceSetup | null>(null)
   const [record, setRecord] = useState<ArrearsRow | 'any' | null>(null)
+  const [bankOpen, setBankOpen] = useState(false)
+  const [typesOpen, setTypesOpen] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [msg, setMsg] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
+  const [reminding, setReminding] = useState<string | null>(null)
   async function load() {
     setLoading(true)
     try {
-      const [s, a, f] = await Promise.all([getStatement(), getArrears(), getFinanceSettings()])
+      const [s, a, su] = await Promise.all([getStatement(), getArrears(), getFinanceSetup().catch(() => null)])
       setSt(s)
       setArrears(a)
-      setFin(f)
+      setSetup(su)
     } finally {
       setLoading(false)
     }
@@ -351,44 +520,70 @@ function AdminOverview() {
   useEffect(() => {
     load()
   }, [])
+  async function remind(unitId?: string) {
+    setReminding(unitId || 'all')
+    setMsg(null)
+    try {
+      const r = await sendReminders(unitId)
+      setMsg({
+        tone: 'good',
+        text: r.sent
+          ? `Reminder sent to ${r.sent} house${r.sent === 1 ? '' : 's'}.${r.skipped ? ` ${r.skipped} skipped (reminded in the last day or no email on file).` : ''}`
+          : 'Nothing sent. Those houses were reminded in the last day, or no one linked to them has an email.',
+      })
+    } catch (e) {
+      setMsg({ tone: 'bad', text: e instanceof Error ? e.message : 'Could not send reminders' })
+    } finally {
+      setReminding(null)
+    }
+  }
   if (loading || !st) return <Loading />
   return (
     <div className="space-y-6">
-      {!fin?.account_number && (
-        <div className="rounded-xl border border-amber-100 bg-amber-50 text-amber-800 px-4 py-3 text-sm">
-          Add your estate's bank account in <strong>Settings → Estate money</strong> so residents know where to pay.
-        </div>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label={`Billed for ${monthLabel(st.month)}`}><Money value={st.billed_this_month} /></Stat>
-        <Stat label="Collection rate" hint="Of this month's bills" tone={st.collection_rate_pct != null && st.collection_rate_pct >= 80 ? 'good' : 'neutral'}>
+      {setup && <SetupGuide setup={setup} go={go} onBank={() => setBankOpen(true)} onTypes={() => setTypesOpen(true)} />}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Stat label={`Billed · ${monthLabel(st.month)}`}><Money value={st.billed_this_month} /></Stat>
+        <Stat label="Collected" hint="Of this month's bills" tone={st.collection_rate_pct != null && st.collection_rate_pct >= 80 ? 'good' : 'neutral'}>
           {st.collection_rate_pct != null ? `${st.collection_rate_pct}%` : '—'}
         </Stat>
-        <Stat label="Outstanding (all time)" tone={st.outstanding_total > 0 ? 'bad' : 'good'} hint={`${st.units_owing} of ${st.units_total} units owe`}>
+        <Stat label="Still owed" tone={st.outstanding_total > 0 ? 'bad' : 'good'} hint={`${st.units_owing} of ${st.units_total} houses`}>
           <Money value={st.outstanding_total} />
         </Stat>
-        <Stat label="Estate balance now" hint="Collected minus approved spending"><Money value={st.closing_balance} /></Stat>
+        <Stat label="Estate balance" hint="Collected minus spending"><Money value={st.closing_balance} /></Stat>
       </div>
+      {msg && <div role="status" className={`rounded-xl px-4 py-3 text-sm ${msg.tone === 'good' ? 'bg-emerald-50 text-emerald-800' : 'bg-alert-50 text-alert-700'}`}>{msg.text}</div>}
       <section className="card">
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-6 pt-5 pb-3">
           <h3 className="font-display font-semibold text-midnight-900">Who owes</h3>
-          <button className="btn-outline text-xs px-3 py-1.5" onClick={() => setRecord('any')}>
-            <Banknote className="h-3.5 w-3.5" /> Record a payment
-          </button>
+          <div className="flex gap-2">
+            {arrears.length > 0 && (
+              <button className="btn-outline text-xs px-3 py-2 whitespace-nowrap" disabled={!!reminding} onClick={() => remind()}>
+                {reminding === 'all' ? <Spinner className="h-3.5 w-3.5" /> : <BellRing className="h-3.5 w-3.5" />} Remind everyone
+              </button>
+            )}
+            <button className="btn-outline text-xs px-3 py-2 whitespace-nowrap" onClick={() => setRecord('any')}>
+              <Banknote className="h-3.5 w-3.5" /> Record payment
+            </button>
+          </div>
         </div>
         {arrears.length === 0 ? (
           <p className="px-6 pb-6 text-sm text-emerald-700">Everyone is paid up.</p>
         ) : (
           <ul className="divide-y divide-midnight-50">
             {arrears.map((a) => (
-              <li key={a.unit_id} className="px-6 py-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium text-midnight-900">{a.label}</p>
-                  <p className="text-xs text-midnight-400">{a.bills} open bill{a.bills === 1 ? '' : 's'} · oldest due {formatDate(a.oldest_due)}</p>
+              <li key={a.unit_id} className="px-5 sm:px-6 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-midnight-900 truncate">{a.label}</p>
+                    <p className="text-xs text-midnight-400">{a.bills} open bill{a.bills === 1 ? '' : 's'} · oldest due {formatDate(a.oldest_due)}</p>
+                  </div>
+                  <Money value={a.due} className="font-semibold text-alert-700 shrink-0" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <Money value={a.due} className="font-semibold text-alert-700" />
+                <div className="mt-2 flex gap-4">
                   <button className="text-xs font-semibold text-royal hover:underline" onClick={() => setRecord(a)}>Record payment</button>
+                  <button className="text-xs font-semibold text-midnight-500 hover:text-midnight-900 inline-flex items-center gap-1" disabled={!!reminding} onClick={() => remind(a.unit_id)}>
+                    {reminding === a.unit_id ? <Spinner className="h-3 w-3" /> : null} Send reminder
+                  </button>
                 </div>
               </li>
             ))}
@@ -396,7 +591,118 @@ function AdminOverview() {
         )}
       </section>
       {record && <RecordPaymentModal preset={record === 'any' ? undefined : record} onClose={() => setRecord(null)} onDone={() => { setRecord(null); load() }} />}
+      {bankOpen && <BankModal onClose={() => setBankOpen(false)} onDone={() => { setBankOpen(false); load() }} />}
+      {typesOpen && <UnitTypesModal onClose={() => setTypesOpen(false)} onDone={() => { setTypesOpen(false); load() }} />}
     </div>
+  )
+}
+
+function BankModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [form, setForm] = useState({ bank_name: '', account_name: '', account_number: '' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    getFinanceSettings()
+      .then((f) => setForm({ bank_name: f.bank_name || '', account_name: f.account_name || '', account_number: f.account_number || '' }))
+      .catch(() => {})
+  }, [])
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    if (!/^\d{10}$/.test(form.account_number.trim())) {
+      setError('Account numbers in Nigeria are 10 digits (NUBAN).')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      await updateFinanceSettings({ bank_name: form.bank_name.trim(), account_name: form.account_name.trim(), account_number: form.account_number.trim() })
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save')
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title="Estate bank account">
+      <form onSubmit={submit} className="space-y-4">
+        <ErrorBox message={error} />
+        <p className="text-sm text-midnight-500">Use the estate's own account (association or facility manager), not a personal one, so residents trust where the money goes.</p>
+        <div>
+          <label className="label" htmlFor="bk-acn">Account name</label>
+          <input id="bk-acn" required className="input" value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} placeholder="Maraba Estate Residents Association" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label" htmlFor="bk-b">Bank</label>
+            <input id="bk-b" required className="input" value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} placeholder="GTBank" />
+          </div>
+          <div>
+            <label className="label" htmlFor="bk-n">Account number</label>
+            <input id="bk-n" required inputMode="numeric" maxLength={10} className="input font-mono" value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value.replace(/\D/g, '') })} placeholder="0123456789" />
+          </div>
+        </div>
+        <button type="submit" disabled={busy} className="btn-primary w-full">{busy ? <Spinner className="h-4 w-4" /> : 'Save bank account'}</button>
+      </form>
+    </Modal>
+  )
+}
+
+/** Set every house's type in one place, so the right price is charged. */
+function UnitTypesModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [units, setUnits] = useState<Unit[] | null>(null)
+  const [types, setTypes] = useState<string[]>([])
+  const [prices, setPrices] = useState<Record<string, number>>({})
+  const [choice, setChoice] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    Promise.all([listUnits(), listCharges()])
+      .then(([u, cs]) => {
+        const active = u.filter((x) => x.active)
+        setUnits(active)
+        const p: Record<string, number> = {}
+        cs.filter((c) => c.active).forEach((c) => Object.entries(c.type_amounts || {}).forEach(([t, a]) => { if (!(t in p)) p[t] = a }))
+        setPrices(p)
+        setTypes(Object.keys(p))
+        setChoice(Object.fromEntries(active.map((x) => [x.id, x.unit_type || ''])))
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load houses'))
+  }, [])
+  async function save() {
+    if (!units) return
+    setBusy(true)
+    setError('')
+    try {
+      const changed = units.filter((u) => (u.unit_type || '') !== (choice[u.id] || ''))
+      for (const u of changed) await updateUnit(u.id, { unit_type: choice[u.id] || '' })
+      onDone()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save')
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title="Set house types">
+      <div className="space-y-4">
+        <ErrorBox message={error} />
+        <p className="text-sm text-midnight-500">Pick the type for each house so it gets the right price. “Standard” uses the bill’s normal amount.</p>
+        {!units ? <Loading /> : units.length === 0 ? <p className="text-sm text-midnight-400">No houses yet.</p> : (
+          <ul className="max-h-[50dvh] overflow-y-auto divide-y divide-midnight-50 rounded-xl border border-midnight-100">
+            {units.map((u) => (
+              <li key={u.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <span className="text-sm font-medium text-midnight-900 min-w-0 truncate">{u.label}</span>
+                <select className="input w-44 py-2" value={choice[u.id] || ''} onChange={(e) => setChoice({ ...choice, [u.id]: e.target.value })} aria-label={`Type for ${u.label}`}>
+                  <option value="">Standard</option>
+                  {types.map((t) => <option key={t} value={t}>{t} · ₦{(prices[t] || 0).toLocaleString()}</option>)}
+                  {u.unit_type && !types.includes(u.unit_type) && <option value={u.unit_type}>{u.unit_type}</option>}
+                </select>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button type="button" disabled={busy || !units} onClick={save} className="btn-primary w-full">{busy ? <Spinner className="h-4 w-4" /> : 'Save types'}</button>
+      </div>
+    </Modal>
   )
 }
 
@@ -465,6 +771,7 @@ function AdminConfirm({ onChanged }: { onChanged: (n: number) => void }) {
   const [recent, setRecent] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [rejecting, setRejecting] = useState<Payment | null>(null)
   async function load() {
     setLoading(true)
     try {
@@ -503,16 +810,7 @@ function AdminConfirm({ onChanged }: { onChanged: (n: number) => void }) {
                 setError(e instanceof Error ? e.message : 'Could not confirm')
               }
             }}
-            onReject={async (p) => {
-              const reason = prompt('Why? The resident will see this.', "We couldn't find this transfer in our account.")
-              if (reason === null) return
-              try {
-                await rejectPayment(p.id, reason)
-                load()
-              } catch (e) {
-                setError(e instanceof Error ? e.message : 'Could not update')
-              }
-            }}
+            onReject={(p) => setRejecting(p)}
           />
         )}
       </section>
@@ -522,15 +820,58 @@ function AdminConfirm({ onChanged }: { onChanged: (n: number) => void }) {
           <PaymentList items={recent} admin />
         </section>
       )}
+      {rejecting && (
+        <RejectPaymentModal
+          payment={rejecting}
+          onClose={() => setRejecting(null)}
+          onDone={() => {
+            setRejecting(null)
+            load()
+          }}
+        />
+      )}
     </div>
   )
 }
 
-function AdminCharges() {
+function RejectPaymentModal({ payment, onClose, onDone }: { payment: Payment; onClose: () => void; onDone: () => void }) {
+  const [reason, setReason] = useState("We couldn't find this transfer in the estate account.")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await rejectPayment(payment.id, reason.trim())
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update')
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title="Money not received">
+      <form onSubmit={submit} className="space-y-4">
+        <ErrorBox message={error} />
+        <p className="text-sm text-midnight-600">
+          <Money value={payment.amount} className="font-semibold" /> from {payment.unit_label}{payment.payer_name ? ` (${payment.payer_name})` : ''}. The bill stays unpaid and they get an email with your reason.
+        </p>
+        <div>
+          <label className="label" htmlFor="rj-r">Reason</label>
+          <textarea id="rj-r" required rows={3} className="input" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </div>
+        <button type="submit" disabled={busy || !reason.trim()} className="btn-alert w-full">{busy ? <Spinner className="h-4 w-4" /> : 'Mark as not received'}</button>
+      </form>
+    </Modal>
+  )
+}
+
+function AdminCharges({ autoNew = false }: { autoNew?: boolean }) {
   const [charges, setCharges] = useState<Charge[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [filter, setFilter] = useState<'open' | 'paid' | ''>('open')
-  const [newOpen, setNewOpen] = useState(false)
+  const [newOpen, setNewOpen] = useState(autoNew)
   const [issueFor, setIssueFor] = useState<Charge | null>(null)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
@@ -552,19 +893,19 @@ function AdminCharges() {
     <div className="space-y-6">
       {msg && <div className="rounded-xl bg-emerald-50 text-emerald-800 text-sm px-4 py-3" role="status">{msg}</div>}
       <section className="card">
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-6 pt-5 pb-3">
           <div>
             <h3 className="font-display font-semibold text-midnight-900">Bill types</h3>
-            <p className="text-xs text-midnight-400">Set each charge once, then issue it every month, quarter or year.</p>
+            <p className="text-xs text-midnight-400">Set each charge once, then send it every month, quarter or year.</p>
           </div>
-          <button className="btn-primary text-xs px-3 py-2" onClick={() => setNewOpen(true)}><Plus className="h-3.5 w-3.5" /> New bill type</button>
+          <button className="btn-primary text-xs px-3 py-2 whitespace-nowrap self-start sm:self-auto" onClick={() => setNewOpen(true)}><Plus className="h-3.5 w-3.5" /> New bill type</button>
         </div>
         {charges.length === 0 ? (
           <p className="px-6 pb-6 text-sm text-midnight-400">No bill types yet. Start with your service charge.</p>
         ) : (
           <ul className="divide-y divide-midnight-50">
             {charges.map((c) => (
-              <li key={c.id} className="px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+              <li key={c.id} className="px-5 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-midnight-900">{c.name} {!c.active && <Badge tone="steel">Paused</Badge>}</p>
                   <p className="text-xs text-midnight-400">
@@ -574,7 +915,7 @@ function AdminCharges() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {c.active && <button className="btn-alert text-xs px-3 py-1.5" onClick={() => setIssueFor(c)}><Send className="h-3.5 w-3.5" /> Issue bills</button>}
+                  {c.active && <button className="btn-alert text-xs px-3 py-2 whitespace-nowrap" onClick={() => setIssueFor(c)}><Send className="h-3.5 w-3.5" /> Send bills</button>}
                   <button
                     className="text-xs text-midnight-500 hover:text-midnight-900"
                     onClick={async () => {
@@ -592,8 +933,8 @@ function AdminCharges() {
       </section>
 
       <section className="card">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-3">
-          <h3 className="font-display font-semibold text-midnight-900">Bills issued</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 pt-5 pb-3">
+          <h3 className="font-display font-semibold text-midnight-900">Bills sent</h3>
           <select className="input w-auto py-1.5 text-xs" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label="Filter bills">
             <option value="open">Unpaid</option>
             <option value="paid">Paid</option>
@@ -620,7 +961,7 @@ function AdminCharges() {
           onClose={() => setIssueFor(null)}
           onDone={(r) => {
             setIssueFor(null)
-            setMsg(`Issued ${r.issued} bill${r.issued === 1 ? '' : 's'}${r.skipped ? ` (${r.skipped} unit${r.skipped === 1 ? '' : 's'} already had this bill)` : ''}. Residents have been emailed.`)
+            setMsg(`Sent ${r.issued} bill${r.issued === 1 ? '' : 's'}${r.skipped ? ` (${r.skipped} house${r.skipped === 1 ? '' : 's'} already had this bill)` : ''}. Residents have been emailed.`)
             load()
           }}
         />
@@ -701,6 +1042,16 @@ function IssueModal({ charge, onClose, onDone }: { charge: Charge; onClose: () =
   const defaultDue = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10)
   const [period, setPeriod] = useState(defaultPeriod)
   const [due, setDue] = useState(defaultDue)
+  const [units, setUnits] = useState<Unit[] | null>(null)
+  const [typesOpen, setTypesOpen] = useState(false)
+  const loadUnits = () => listUnits().then(setUnits).catch(() => {})
+  useEffect(() => {
+    loadUnits()
+  }, [])
+  const typePrices = charge.type_amounts || {}
+  const preview = (units || []).filter((u) => u.active).reduce((sum, u) => sum + (u.unit_type && u.unit_type in typePrices ? typePrices[u.unit_type] : charge.amount), 0)
+  const activeCount = (units || []).filter((u) => u.active).length
+  const untyped = Object.keys(typePrices).length && units ? units.filter((u) => u.active && !(u.unit_type && u.unit_type in typePrices)) : []
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function submit(e: FormEvent) {
@@ -715,7 +1066,7 @@ function IssueModal({ charge, onClose, onDone }: { charge: Charge; onClose: () =
     }
   }
   return (
-    <Modal open onClose={onClose} title={`Issue ${charge.name}`}>
+    <Modal open onClose={onClose} title={`Send ${charge.name}`}>
       <form onSubmit={submit} className="space-y-4">
         <ErrorBox message={error} />
         <div>
@@ -727,18 +1078,34 @@ function IssueModal({ charge, onClose, onDone }: { charge: Charge; onClose: () =
           <label className="label" htmlFor="is-d">Due date</label>
           <input id="is-d" required type="date" className="input" value={due} onChange={(e) => setDue(e.target.value)} />
         </div>
-        <p className="text-sm text-midnight-600">Every active house/unit gets a bill of ₦{charge.amount.toLocaleString()} (or its unit-type price). Residents get an email, and any estate balance they have is used first.</p>
-        <button type="submit" disabled={busy} className="btn-alert w-full">{busy ? <Spinner className="h-4 w-4" /> : 'Issue bills now'}</button>
+        {untyped.length > 0 && (
+          <div className="rounded-xl bg-amber-50 text-amber-800 text-xs px-3 py-2.5">
+            <p>
+              {untyped.length} house{untyped.length === 1 ? '' : 's'} ({untyped.slice(0, 4).map((u) => u.label).join(', ')}{untyped.length > 4 ? '…' : ''}) {untyped.length === 1 ? "has" : "have"} no type, so {untyped.length === 1 ? 'it' : 'they'} will be charged the standard ₦{charge.amount.toLocaleString()}.
+            </p>
+            <button type="button" className="mt-1.5 font-semibold underline" onClick={() => setTypesOpen(true)}>Set house types now</button>
+          </div>
+        )}
+        {units && (
+          <div className="rounded-xl bg-midnight-50/70 px-4 py-3 text-sm">
+            <p className="text-midnight-600">{activeCount} house{activeCount === 1 ? '' : 's'} will get this bill</p>
+            <p className="font-display text-xl font-semibold text-midnight-900 tabular-nums">Total <Money value={preview} /></p>
+            <p className="text-xs text-midnight-400 mt-0.5">Residents get an email. Any estate balance they have is used first.</p>
+          </div>
+        )}
+        <button type="submit" disabled={busy || activeCount === 0} className="btn-alert w-full">{busy ? <Spinner className="h-4 w-4" /> : 'Send bills now'}</button>
       </form>
+      {typesOpen && <UnitTypesModal onClose={() => setTypesOpen(false)} onDone={() => { setTypesOpen(false); loadUnits() }} />}
     </Modal>
   )
 }
 
-function AdminUnits() {
+function AdminUnits({ autoNew = false }: { autoNew?: boolean }) {
   const [units, setUnits] = useState<Unit[]>([])
   const [people, setPeople] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const [edit, setEdit] = useState<Unit | 'new' | null>(null)
+  const [edit, setEdit] = useState<Unit | 'new' | null>(autoNew ? 'new' : null)
+  const [typesOpen, setTypesOpen] = useState(false)
   const [msg, setMsg] = useState('')
   async function load() {
     setLoading(true)
@@ -762,7 +1129,8 @@ function AdminUnits() {
     <div className="space-y-4">
       {msg && <div className="rounded-xl bg-emerald-50 text-emerald-800 text-sm px-4 py-3" role="status">{msg}</div>}
       <div className="flex flex-wrap gap-2">
-        <button className="btn-primary text-sm" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> Add house / unit</button>
+        <button className="btn-primary text-sm" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> Add house</button>
+        {units.length > 0 && <button className="btn-outline text-sm" onClick={() => setTypesOpen(true)}><Tags className="h-4 w-4" /> Set house types</button>}
         {unlinked.length > 0 && (
           <button
             className="btn-outline text-sm"
@@ -772,19 +1140,19 @@ function AdminUnits() {
               load()
             }}
           >
-            <Upload className="h-4 w-4" /> Create units from residents' flat numbers ({unlinked.length})
+            <Upload className="h-4 w-4" /> Add houses from residents' flat numbers ({unlinked.length})
           </button>
         )}
       </div>
       <div className="card">
         {units.length === 0 ? (
-          <EmptyState title="No houses or units yet" subtitle="Bills are sent per house/flat. Add them here, or create them from residents' flat numbers." />
+          <EmptyState title="No houses yet" subtitle="Bills are sent per house or flat. Add them here, or create them from residents' flat numbers." />
         ) : (
           <ul className="divide-y divide-midnight-50">
             {units.map((u) => (
-              <li key={u.id} className="px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+              <li key={u.id} className="px-5 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-medium text-midnight-900">{u.label} {u.unit_type && <span className="text-xs text-midnight-400">· {u.unit_type}</span>}</p>
+                  <p className="font-medium text-midnight-900">{u.label} {u.unit_type ? <span className="text-xs text-midnight-400">· {u.unit_type}</span> : <span className="text-xs text-amber-700">· no type</span>}</p>
                   <p className="text-xs text-midnight-400">
                     {u.occupants.length ? u.occupants.map((o) => o.name).join(', ') : 'No one linked yet'}
                     {u.payer ? ` · bills to ${u.payer.name}` : ''}
@@ -802,6 +1170,7 @@ function AdminUnits() {
         )}
       </div>
       {edit && <UnitModal unit={edit === 'new' ? undefined : edit} people={people} onClose={() => setEdit(null)} onDone={() => { setEdit(null); load() }} />}
+      {typesOpen && <UnitTypesModal onClose={() => setTypesOpen(false)} onDone={() => { setTypesOpen(false); setMsg('House types saved.'); load() }} />}
     </div>
   )
 }
@@ -815,6 +1184,10 @@ function UnitModal({ unit, people, onClose, onDone }: { unit?: Unit; people: Use
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const residents = people.filter((p) => p.role === 'resident' || occ.includes(p.id))
+  const [typeOptions, setTypeOptions] = useState<string[]>([])
+  useEffect(() => {
+    listCharges().then((cs) => setTypeOptions(Array.from(new Set(cs.flatMap((c) => Object.keys(c.type_amounts || {})))))).catch(() => {})
+  }, [])
   async function submit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
@@ -831,7 +1204,7 @@ function UnitModal({ unit, people, onClose, onDone }: { unit?: Unit; people: Use
     }
   }
   return (
-    <Modal open onClose={onClose} title={unit ? `Edit ${unit.label}` : 'Add house / unit'}>
+    <Modal open onClose={onClose} title={unit ? `Edit ${unit.label}` : 'Add a house'}>
       <form onSubmit={submit} className="space-y-4">
         <ErrorBox message={error} />
         <div className="grid grid-cols-2 gap-3">
@@ -841,7 +1214,9 @@ function UnitModal({ unit, people, onClose, onDone }: { unit?: Unit; people: Use
           </div>
           <div>
             <label className="label" htmlFor="u-t">Type (optional)</label>
-            <input id="u-t" className="input" value={type} onChange={(e) => setType(e.target.value)} placeholder="2-bed flat, duplex" />
+            <input id="u-t" className="input" list="unit-types" value={type} onChange={(e) => setType(e.target.value)} placeholder="2-bed flat, duplex" />
+            <datalist id="unit-types">{typeOptions.map((t) => <option key={t} value={t} />)}</datalist>
+            {typeOptions.length > 0 && <p className="text-[11px] text-midnight-400 mt-1">Pick one of your bill price types so the right amount is charged.</p>}
           </div>
         </div>
         <div>

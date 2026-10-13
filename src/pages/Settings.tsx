@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AlertCircle, CheckCircle2, Plus, Trash2, Pencil, X } from 'lucide-react'
 import { changePassword, getEstate, listUsers, updateEstateSettings, updateMyProfile, updateEstateProfile } from '@/lib/api'
-import { getFinanceSettings, updateFinanceSettings } from '@/lib/finance'
+import { connectPaystack, getFinanceSettings, getPaystackBanks, getPaystackStatus, updateFinanceSettings, type PaystackStatus } from '@/lib/finance'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
@@ -21,6 +21,8 @@ export default function Settings() {
       {(user?.role === 'admin' || user?.role === 'super_admin') && <EstateSettingsCard estateId={user.estate_id ?? undefined} />}
 
       {(user?.role === 'admin' || user?.role === 'super_admin') && <FinanceSettingsCard />}
+
+      {(user?.role === 'admin' || user?.role === 'super_admin') && <PaystackCard />}
     </div>
   )
 }
@@ -467,5 +469,78 @@ function FinanceSettingsCard() {
         </>
       )}
     </form>
+  )
+}
+
+function PaystackCard() {
+  const [st, setSt] = useState<PaystackStatus | null>(null)
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
+  const [bank, setBank] = useState('')
+  const [acct, setAcct] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState(false)
+
+  useEffect(() => {
+    getPaystackStatus().then((s) => {
+      setSt(s)
+      if (s.enabled) getPaystackBanks().then(setBanks).catch(() => {})
+    }).catch(() => {})
+  }, [])
+
+  if (!st) return null
+
+  async function connect(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      setSt(await connectPaystack(bank, acct))
+      setEditing(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not connect')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card p-6 space-y-4">
+      <div>
+        <h3 className="font-display font-semibold text-midnight-900">Online payments (Paystack)</h3>
+        <p className="text-sm text-midnight-400 mt-1">
+          Let residents pay by card, transfer or USSD inside NexHood. Money settles straight into the estate account below, usually the next working day, and bills update automatically.
+        </p>
+      </div>
+      {!st.enabled ? (
+        <p className="rounded-xl bg-midnight-50 text-midnight-600 text-sm px-4 py-3">Online payments are coming soon. For now residents pay by transfer and you confirm it.</p>
+      ) : st.connected && !editing ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 px-4 py-3">
+          <p className="text-sm text-emerald-800 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" /> Connected: {st.settlement?.account_name} · {st.settlement?.bank_name} · {st.settlement?.account_number}
+          </p>
+          <button type="button" className="text-xs font-semibold text-royal" onClick={() => setEditing(true)}>Change account</button>
+        </div>
+      ) : (
+        <form onSubmit={connect} className="space-y-3">
+          {error && <p className="text-sm text-alert-600" role="alert">{error}</p>}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label" htmlFor="ps-bank">Bank</label>
+              <select id="ps-bank" required className="input" value={bank} onChange={(e) => setBank(e.target.value)}>
+                <option value="">Choose bank…</option>
+                {banks.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="ps-acct">Account number</label>
+              <input id="ps-acct" required inputMode="numeric" pattern="[0-9]{10}" maxLength={10} className="input" value={acct} onChange={(e) => setAcct(e.target.value.replace(/\D/g, ''))} />
+            </div>
+          </div>
+          <p className="text-xs text-midnight-400">We check the account name with the bank before saving. Use the estate's own account, not a personal one.</p>
+          <button type="submit" disabled={busy} className="btn-primary">{busy ? <Spinner className="h-4 w-4" /> : 'Connect account'}</button>
+        </form>
+      )}
+    </div>
   )
 }

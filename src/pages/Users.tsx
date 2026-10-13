@@ -82,7 +82,50 @@ export default function Users() {
         ) : users.length === 0 ? (
           <EmptyState title="No users yet" subtitle="Invite your first guard or admin to get started." />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones: one card per person. */}
+          <ul className="sm:hidden divide-y divide-midnight-50">
+            {users.map((u) => (
+              <li key={u.id} className="px-4 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-midnight-900 truncate">{u.name}{u.apartment ? <span className="text-xs text-midnight-400 font-normal"> · {u.apartment}</span> : null}</p>
+                    <p className="text-xs text-midnight-500 truncate">{u.phone}</p>
+                    <p className="text-xs text-midnight-400 truncate">{u.email}</p>
+                  </div>
+                  <button
+                    onClick={() => handleToggleActive(u.id, !u.is_active)}
+                    disabled={u.id === me?.id}
+                    className="shrink-0"
+                    aria-label={u.is_active ? `Block ${u.name}` : `Allow ${u.name}`}
+                  >
+                    <Badge tone={u.is_active ? 'success' : 'neutral'}>{u.is_active ? 'Allowed' : 'Blocked'}</Badge>
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                  <select
+                    className="input py-1.5 text-sm w-auto"
+                    value={u.role}
+                    disabled={u.id === me?.id}
+                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                    aria-label={`Role for ${u.name}`}
+                  >
+                    {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    {u.role === 'super_admin' && <option value="super_admin">super_admin</option>}
+                  </select>
+                  <span className="flex-1 text-xs text-midnight-500">
+                    {neverUsed(u) ? <span className="text-amber-700">Never logged in</span> : `Active ${timeAgo(u.last_seen)}`}
+                  </span>
+                  {u.id !== me?.id && (
+                    <button onClick={() => handleDelete(u.id)} className="text-midnight-300 hover:text-alert-600 p-1" aria-label={`Remove ${u.name}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-midnight-400 border-b border-midnight-50">
@@ -140,6 +183,7 @@ export default function Users() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

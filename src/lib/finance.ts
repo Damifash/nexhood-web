@@ -22,7 +22,7 @@ async function call<T>(p: Promise<{ data: T }>, fallback: string): Promise<T> {
 
 export type ChargeCategory = 'service_charge' | 'security' | 'power' | 'water' | 'waste' | 'special' | 'other'
 export type ExpenseCategory = 'diesel_power' | 'security_salaries' | 'repairs' | 'cleaning_waste' | 'water' | 'admin' | 'other'
-export type RepairCategory = 'plumbing' | 'electrical' | 'road' | 'drainage' | 'waste' | 'gate_fence' | 'water' | 'other'
+export type RepairCategory = 'plumbing' | 'electrical' | 'roof_building' | 'road' | 'drainage' | 'waste' | 'gate_fence' | 'water' | 'other'
 export type RepairStatus = 'reported' | 'assigned' | 'in_progress' | 'fixed' | 'closed'
 
 export const CHARGE_LABEL: Record<ChargeCategory, string> = {
@@ -32,7 +32,7 @@ export const EXPENSE_LABEL: Record<ExpenseCategory, string> = {
   diesel_power: 'Diesel & power', security_salaries: 'Security salaries', repairs: 'Repairs & maintenance', cleaning_waste: 'Cleaning & waste', water: 'Water', admin: 'Admin & bank charges', other: 'Other',
 }
 export const REPAIR_LABEL: Record<RepairCategory, string> = {
-  plumbing: 'Plumbing / leak', electrical: 'Electrical / lights', road: 'Road', drainage: 'Drainage', waste: 'Waste', gate_fence: 'Gate / fence', water: 'Water / borehole', other: 'Other',
+  plumbing: 'Plumbing / pipes', electrical: 'Electrical / lights', roof_building: 'Roof / building', road: 'Road', drainage: 'Drainage', waste: 'Waste', gate_fence: 'Gate / fence', water: 'Water / borehole', other: 'Other',
 }
 
 export interface FinanceSettings {
@@ -87,7 +87,8 @@ export interface Payment {
   method: 'bank_transfer' | 'cash' | 'pos' | 'paystack'
   reference?: string | null
   note?: string | null
-  status: 'pending' | 'confirmed' | 'rejected'
+  status: 'pending' | 'confirmed' | 'rejected' | 'failed'
+  fee?: number
   reject_reason?: string | null
   to_credit?: number
   created_at: string
@@ -195,6 +196,20 @@ export const voidExpense = (id: string, reason: string) => call<{ message: strin
 export const getStatement = (month?: string) => call<Statement>(api.get('/api/finance/statement', { params: month ? { month } : {} }), 'Could not load statement')
 export const getArrears = () => call<ArrearsRow[]>(api.get('/api/finance/arrears'), 'Could not load arrears')
 export const getMyFinance = () => call<MyFinance>(api.get('/api/finance/me'), 'Could not load your bills')
+export interface FinanceSetup {
+  bank: boolean
+  units: number
+  units_untyped: number
+  untyped_labels: string[]
+  price_types: string[]
+  charges: number
+  invoices: number
+  paystack: boolean
+  approver: boolean
+}
+export const getFinanceSetup = () => call<FinanceSetup>(api.get('/api/finance/setup'), 'Could not load setup')
+export const sendReminders = (unit_id?: string) =>
+  call<{ sent: number; skipped: number }>(api.post('/api/finance/remind', unit_id ? { unit_id } : {}), 'Could not send reminders')
 // repairs
 export const listRepairs = (params?: { status?: string }) => call<Repair[]>(api.get('/api/repairs', { params }), 'Could not load repair requests')
 export const createRepair = (body: { category: RepairCategory; title: string; description: string; location?: string; visibility: 'estate' | 'management'; images?: string[] }) =>
@@ -237,3 +252,19 @@ export function currentMonth() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
+
+// ---------------- Paystack (online payments) ----------------
+export interface PaystackStatus {
+  enabled: boolean
+  connected: boolean
+  settlement: { bank_name?: string | null; account_name?: string | null; account_number?: string | null } | null
+  fee_margin: number
+}
+export const getPaystackStatus = () => call<PaystackStatus>(api.get('/api/finance/paystack/status'), 'Could not check online payments')
+export const getPaystackBanks = () => call<{ name: string; code: string }[]>(api.get('/api/finance/paystack/banks'), 'Could not load banks')
+export const connectPaystack = (bank_code: string, account_number: string) =>
+  call<PaystackStatus>(api.post('/api/finance/paystack/connect', { bank_code, account_number }), 'Could not connect the account')
+export const quotePaystack = (amount: number) => call<{ amount: number; fee: number; total: number }>(api.get('/api/payments/paystack/quote', { params: { amount } }), 'Could not work out the fee')
+export const startPaystack = (amount: number, invoice_id?: string) =>
+  call<{ authorization_url: string; reference: string; amount: number; fee: number; total: number }>(api.post('/api/payments/paystack/init', { amount, invoice_id }), 'Could not start online payment')
+export const verifyPaystack = (reference: string) => call<{ status: 'confirmed' | 'pending' | 'failed' }>(api.get('/api/payments/paystack/verify', { params: { reference } }), 'Could not check the payment')

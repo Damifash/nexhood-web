@@ -5,6 +5,12 @@ import {
   ArrowRight,
   BarChart3,
   Bell,
+  BellDot,
+  Landmark,
+  Receipt,
+  Wallet,
+  Wrench,
+  ShieldCheck,
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
@@ -81,6 +87,16 @@ const FEATURES = [
   { icon: BarChart3, title: 'Admin analytics', body: 'Visitor volume, incident trends and response times, so you can act early.', tags: ['Admin'] },
 ]
 
+// New in NexHood (Oct 2026). Keep this list to what is actually live.
+const NEW_FEATURES = [
+  { icon: Receipt, title: 'Service charge bills', body: 'Set the charge once, with different prices for 3-bed and 4-bed if you need. NexHood bills every house, emails it, and shows who has paid.' },
+  { icon: Wallet, title: 'Pay without the WhatsApp wahala', body: 'Residents see the estate account, pay by transfer and tap “I paid” with a screenshot. The admin confirms in one tap and the bill clears. Overpay, and it’s kept for next time.' },
+  { icon: Landmark, title: 'Where the money went', body: 'Every expense is recorded with its receipt. Big spends need the approver’s OK. Every resident sees a monthly statement of money in and money out.' },
+  { icon: Wrench, title: 'Repairs board', body: 'Leaking roof, dead street light, broken gate. Report it with photos, neighbours tap “me too”, and everyone can follow it until it’s fixed.' },
+  { icon: BellDot, title: 'Nothing missed', body: 'A red dot on alerts, incidents, bills and posts the moment something new happens, for residents, guards and admins.' },
+  { icon: ShieldCheck, title: 'Each role sees only its part', body: 'Residents and admins see the estate’s money. Guards see the gate and alerts. Police see only what’s escalated to them.' },
+]
+
 const ROLES: { key: string; label: string; screen: { title: string; rows: string[] }; points: string[] }[] = [
   {
     key: 'resident',
@@ -96,9 +112,9 @@ const ROLES: { key: string; label: string; screen: { title: string; rows: string
   },
   {
     key: 'admin',
-    label: 'Estate admin',
-    screen: { title: 'Estate overview', rows: ['Visitors today · 38', 'Open incidents · 2', 'Invite residents'] },
-    points: ['Invite residents, guards and police with one link each', 'See every incident, alert and visitor in one dashboard', 'Spot patterns early with simple analytics'],
+    label: 'Admin / manager',
+    screen: { title: 'Overview', rows: ['Visitors today · 38', 'Payments to confirm · 3', 'Collected this month · ₦3.1m'] },
+    points: ['Invite residents, guards and police with one link each', 'Bill every unit, take payments online and publish the monthly statement', 'See every incident, alert, visitor and repair in one dashboard'],
   },
   {
     key: 'police',
@@ -113,6 +129,8 @@ const FAQS = [
   { q: 'What does it cost?', a: 'We’re onboarding estates from the waitlist and agreeing pricing with each one based on its size. Join the list and we’ll talk you through it. No payment is needed to join.' },
   { q: 'How do we move our estate onto NexHood?', a: 'The estate admin or exco sets the estate up, then invites residents, guards and police. We help with the setup and with training your guards at the gate.' },
   { q: 'Is our data safe?', a: 'Each estate only sees its own data, and access depends on your role. Joining an existing estate is invite-only, so strangers can’t add themselves to your estate.' },
+  { q: 'Can we collect service charge and dues on NexHood?', a: 'Yes. The admin sets the charges, NexHood bills each unit, and residents pay online with Paystack or by bank transfer. Everyone can see a monthly statement of what was collected and what was spent.' },
+  { q: 'Does NexHood hold our money?', a: 'No. Residents pay into your estate’s own bank account. NexHood only keeps the records. When online card payments are switched on, the money goes straight from Paystack to the estate’s account and the resident sees any small fee before paying.' },
   { q: 'Does it work with our existing guards?', a: 'Yes. NexHood is built around the guards and gates you already have. Guards just need a phone to scan passes and receive alerts.' },
 ]
 
@@ -172,6 +190,7 @@ export default function Landing() {
   const navLinks = [
     { href: '#how', label: 'How it works' },
     { href: '#features', label: 'Features' },
+    { href: '#new', label: 'Bills & accounts' },
     { href: '#roles', label: 'For every role' },
     { href: '#faq', label: 'FAQ' },
   ]
@@ -234,7 +253,7 @@ export default function Landing() {
                 {headline}
               </h1>
               <p className="rise mt-5 text-base sm:text-lg text-steel-200 max-w-xl leading-relaxed" style={{ animationDelay: '.4s' }}>
-                QR visitor passes, a panic button that reaches estate security and the police, and one place for residents, guards and admins. Live in Abuja today.
+                QR visitor passes, a panic button that reaches security and the police, and now service charge bills and open estate accounts that every resident can see. Live in Abuja today.
               </p>
               <div className="rise mt-8 flex flex-col sm:flex-row gap-3" style={{ animationDelay: '.55s' }}>
                 <button type="button" onClick={() => goToWaitlist()} className="btn-alert press alert-once text-base px-7 py-3">
@@ -316,6 +335,49 @@ export default function Landing() {
                       <span key={t} className="badge bg-white/10 text-steel-100 font-medium">{t}</span>
                     ))}
                   </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* What's new */}
+        <section id="new" className="py-16 sm:py-24 scroll-mt-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="grid lg:grid-cols-[1fr_1fr] gap-10 items-center">
+              <Reveal className="max-w-2xl">
+                <SectionLabel>New in NexHood</SectionLabel>
+                <h2 className="mt-2 font-display text-3xl sm:text-4xl font-semibold leading-tight">Service charge, paid and accounted for.</h2>
+                <p className="mt-4 text-midnight-500 leading-relaxed">
+                  The biggest fights in Nigerian estates are about service charge: who paid, and where the money went. NexHood now
+                  sends the bills, tracks every payment and shows every resident the estate’s accounts, month by month.
+                </p>
+                <ol className="mt-6 space-y-3 text-sm">
+                  {[
+                    ['Admin sends the bill', 'Every house gets it in the app and by email.'],
+                    ['Resident pays the estate account', 'Then taps “I paid” and adds the screenshot.'],
+                    ['Admin confirms in one tap', 'The bill clears and the statement updates for everyone.'],
+                  ].map(([t, b], i) => (
+                    <li key={t} className="flex gap-3">
+                      <span className="h-7 w-7 shrink-0 rounded-full bg-royal text-warm text-xs font-semibold flex items-center justify-center">{i + 1}</span>
+                      <span><span className="font-semibold text-midnight-900">{t}.</span> <span className="text-midnight-500">{b}</span></span>
+                    </li>
+                  ))}
+                </ol>
+              </Reveal>
+              <Reveal className="grid sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+                <BillMock />
+                <StatementMock />
+              </Reveal>
+            </div>
+            <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {NEW_FEATURES.map((f) => (
+                <Reveal key={f.title} className="card p-6 h-full">
+                  <span className="h-11 w-11 rounded-xl bg-royal-50 text-royal flex items-center justify-center">
+                    <f.icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="mt-4 font-display text-lg font-semibold">{f.title}</h3>
+                  <p className="mt-2 text-sm text-midnight-500 leading-relaxed">{f.body}</p>
                 </Reveal>
               ))}
             </div>
@@ -496,6 +558,62 @@ function HeroCard() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Illustrative only: mirrors the resident's Bills screen in the app.
+function BillMock() {
+  return (
+    <figure className="card p-5" aria-label="Example of a resident's bill in the app">
+      <p className="text-xs font-semibold uppercase tracking-wide text-midnight-400">You owe · example</p>
+      <p className="mt-1 font-display text-3xl font-semibold tabular-nums">₦150,000</p>
+      <p className="text-xs text-midnight-400">House 14 · Service charge Q4</p>
+      <div className="mt-4 rounded-xl bg-midnight-50/70 px-3.5 py-3 text-xs">
+        <p className="font-semibold uppercase tracking-wide text-midnight-400">Pay the estate account</p>
+        <p className="mt-1 font-semibold text-midnight-900 text-sm">Estate Residents Association</p>
+        <p className="text-midnight-600">Bank · <span className="font-mono font-semibold">0123456789</span></p>
+      </div>
+      <span className="mt-4 btn-alert w-full pointer-events-none" aria-hidden="true">I paid by transfer</span>
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" /> Admin confirms, bill clears, receipt by email</p>
+    </figure>
+  )
+}
+
+// Illustrative only: the numbers are an example, not a real estate's accounts.
+function StatementMock() {
+  const rows = [
+    { label: 'Diesel and power', value: 1_240_000, w: 46, color: '#2a78d6' },
+    { label: 'Security salaries', value: 960_000, w: 36, color: '#eb6834' },
+    { label: 'Repairs', value: 310_000, w: 12, color: '#1baf7a' },
+    { label: 'Waste and cleaning', value: 160_000, w: 6, color: '#eda100' },
+  ]
+  return (
+    <figure className="card p-5 sm:p-6" aria-label="Example monthly statement">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-midnight-400">Monthly statement · example</p>
+          <p className="mt-1 font-display text-lg font-semibold">Where the money went</p>
+        </div>
+        <span className="badge bg-emerald-50 text-emerald-700">Visible to all residents</span>
+      </div>
+      <dl className="mt-5 grid grid-cols-3 gap-3 text-sm">
+        <div><dt className="text-midnight-400 text-xs">Collected</dt><dd className="font-display text-lg font-semibold tabular-nums">₦3.1m</dd></div>
+        <div><dt className="text-midnight-400 text-xs">Spent</dt><dd className="font-display text-lg font-semibold tabular-nums">₦2.67m</dd></div>
+        <div><dt className="text-midnight-400 text-xs">Balance</dt><dd className="font-display text-lg font-semibold tabular-nums text-emerald-700">₦430k</dd></div>
+      </dl>
+      <div className="mt-5 flex h-3 w-full overflow-hidden rounded-full gap-0.5" aria-hidden="true">
+        {rows.map((r) => <span key={r.label} style={{ width: `${r.w}%`, background: r.color }} />)}
+      </div>
+      <ul className="mt-4 space-y-2 text-sm">
+        {rows.map((r) => (
+          <li key={r.label} className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-midnight-600"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: r.color }} />{r.label}</span>
+            <span className="tabular-nums font-medium">₦{r.value.toLocaleString('en-NG')}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 text-xs text-midnight-400 flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5" /> Every line has a receipt. Spends over ₦100,000 need the approver.</p>
+    </figure>
   )
 }
 

@@ -37,12 +37,20 @@ export default function App() {
           <Route path="incidents" element={<Incidents />} />
           <Route path="incidents/:id" element={<IncidentDetail />} />
           <Route path="alerts" element={<Alerts />} />
-          <Route path="community" element={<Community />} />
-          <Route path="welfare" element={<Welfare />} />
-          <Route path="payments" element={<Payments />} />
-          <Route path="finances" element={<Finances />} />
-          <Route path="repairs" element={<Repairs />} />
           <Route path="settings" element={<Settings />} />
+
+          {/* Estate life: residents, guards and admins. Police only get alerts and incidents. */}
+          <Route element={<ProtectedRoute roles={['resident', 'guard', 'admin', 'super_admin']} />}>
+            <Route path="community" element={<Community />} />
+            <Route path="welfare" element={<Welfare />} />
+            <Route path="repairs" element={<Repairs />} />
+          </Route>
+
+          {/* Money: only the people who pay (residents) and run the estate (admins). */}
+          <Route element={<ProtectedRoute roles={['resident', 'admin', 'super_admin']} />}>
+            <Route path="payments" element={<Payments />} />
+            <Route path="finances" element={<Finances />} />
+          </Route>
 
           <Route element={<ProtectedRoute roles={['admin', 'super_admin']} />}>
             <Route path="analytics" element={<Analytics />} />

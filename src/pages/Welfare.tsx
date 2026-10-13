@@ -46,8 +46,8 @@ export default function Welfare() {
       />
 
       <div className="rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3 mb-6">
-        Payments aren't wired up to a real processor yet — donating here records a pledge, not a real charge.
-        Pledges only count toward a campaign's total once {isAdmin ? 'you confirm' : 'your admin confirms'} the money actually arrived.
+        Donating here records a pledge: send the money the way your estate collects welfare, then pledge it here.
+        It counts toward the total once {isAdmin ? 'you confirm' : 'your admin confirms'} the money arrived.
       </div>
 
       {isAdmin && <PendingDonationsCard />}
