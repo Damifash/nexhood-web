@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge } from '@/components/ui/Badge'
+import { AlertSetupCard } from '@/components/alerts/AlertSetupCard'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -13,6 +14,8 @@ export default function Settings() {
   return (
     <div className="max-w-xl space-y-6">
       <PageHeader title="Settings" subtitle="Manage your profile and account security." />
+
+      <AlertSetupCard />
 
       <ProfileCard />
 
@@ -226,12 +229,10 @@ function PasswordCard() {
 
 interface EmergencyContact {
   name: string
-  email: string
   phone: string
 }
 
 function EstateSettingsCard({ estateId }: { estateId?: string }) {
-  const [policeEmail, setPoliceEmail] = useState('')
   const [policePhone, setPolicePhone] = useState('')
   const [contacts, setContacts] = useState<EmergencyContact[]>([])
   const [loading, setLoading] = useState(false)
@@ -244,10 +245,9 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
     setLoading(true)
     getEstate(estateId)
       .then((estate) => {
-        setPoliceEmail((estate.settings?.police_email as string) || '')
         setPolicePhone((estate.settings?.police_phone as string) || '')
-        const raw = (estate.settings?.emergencyContacts as EmergencyContact[]) || []
-        setContacts(raw.length ? raw : [])
+        const raw = (estate.settings?.emergencyContacts as Partial<EmergencyContact>[]) || []
+        setContacts(raw.map((c) => ({ name: c.name || '', phone: c.phone || '' })))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -258,7 +258,7 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
   }
 
   function addContact() {
-    setContacts((prev) => [...prev, { name: '', email: '', phone: '' }])
+    setContacts((prev) => [...prev, { name: '', phone: '' }])
   }
 
   function removeContact(index: number) {
@@ -273,8 +273,13 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
     setSaving(true)
     try {
       // Drop blank rows (e.g. an "Add contact" row left empty) before saving.
-      const cleanContacts = contacts.filter((c) => c.name.trim() || c.email.trim() || c.phone.trim())
-      await updateEstateSettings(estateId, { police_email: policeEmail, police_phone: policePhone, emergencyContacts: cleanContacts })
+      const cleanContacts = contacts.filter((c) => c.name.trim() || c.phone.trim())
+      if (cleanContacts.some((c) => !c.phone.trim())) {
+        setError('Every emergency contact needs a phone number.')
+        setSaving(false)
+        return
+      }
+      await updateEstateSettings(estateId, { police_phone: policePhone, emergencyContacts: cleanContacts })
       setContacts(cleanContacts)
       setSuccess(true)
     } catch (err) {
@@ -288,7 +293,7 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
     <div className="card p-6">
       <h3 className="font-display font-semibold text-midnight-900 mb-1">Estate settings</h3>
       <p className="text-sm text-midnight-400 mb-4">
-        Who your admins and guards can reach when something urgent happens — email for a record, phone for a one-tap call.
+        The numbers everyone can call in one tap during an emergency.
       </p>
       {error && (
         <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3 mb-4">
@@ -305,25 +310,19 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="label">Police contact</label>
+            <label className="label" htmlFor="police-phone">Police phone number</label>
             <p className="text-xs text-midnight-400 mb-2">
-              The email is for "Notify police" on a high/critical alert; the phone number powers a one-tap "Call police" button on the Alerts page.
+              Your nearest police division or patrol. It powers the one-tap “Call police” button on every alert.
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="email"
-                className="input"
-                placeholder="police@example.com"
-                value={policeEmail}
-                onChange={(e) => setPoliceEmail(e.target.value)}
-              />
-              <input
-                className="input"
-                placeholder="+234... (for calling)"
-                value={policePhone}
-                onChange={(e) => setPolicePhone(e.target.value)}
-              />
-            </div>
+            <input
+              id="police-phone"
+              type="tel"
+              inputMode="tel"
+              className="input"
+              placeholder="0803 000 0000"
+              value={policePhone}
+              onChange={(e) => setPolicePhone(e.target.value)}
+            />
           </div>
 
           <div>
@@ -334,7 +333,7 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
               </button>
             </div>
             <p className="text-xs text-midnight-400 mb-3">
-              Emailed when a high/critical alert (panic, fire, medical, security breach) is raised — separate from incidents, which already notify your admins and guards automatically.
+              For example the estate chairman, facility manager or a nearby clinic. They show as one-tap call buttons on the Alerts page.
             </p>
             {contacts.length === 0 ? (
               <p className="text-sm text-midnight-400 italic">No emergency contacts yet.</p>
@@ -343,21 +342,18 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
                 {contacts.map((c, i) => (
                   <div key={i} className="flex gap-2">
                     <input
-                      className="input flex-1"
-                      placeholder="Name"
+                      className="input flex-1 min-w-0"
+                      placeholder="Name or role"
+                      aria-label="Contact name"
                       value={c.name}
                       onChange={(e) => updateContact(i, 'name', e.target.value)}
                     />
                     <input
-                      type="email"
-                      className="input flex-1"
-                      placeholder="email@example.com"
-                      value={c.email}
-                      onChange={(e) => updateContact(i, 'email', e.target.value)}
-                    />
-                    <input
-                      className="input flex-1"
-                      placeholder="+234... (optional)"
+                      type="tel"
+                      inputMode="tel"
+                      className="input flex-1 min-w-0"
+                      placeholder="0803 000 0000"
+                      aria-label="Contact phone number"
                       value={c.phone}
                       onChange={(e) => updateContact(i, 'phone', e.target.value)}
                     />

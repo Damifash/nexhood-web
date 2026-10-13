@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Siren, ShieldAlert, PhoneCall, Phone, AlertCircle, CheckCircle2, X, Mail } from 'lucide-react'
+import { Siren, ShieldAlert, PhoneCall, Phone, AlertCircle, CheckCircle2, X, MapPin, FlaskConical, Clock } from 'lucide-react'
 import { acknowledgeAlert, createAlert, listAlerts, notifyPolice, resolveAlert, getEstate, getEstateContacts } from '@/lib/api'
 import type { Alert } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner, EmptyState } from '@/components/ui/Spinner'
 import { Badge, statusTone } from '@/components/ui/Badge'
+import { AlertSetupCard } from '@/components/alerts/AlertSetupCard'
+import { unlockAudio } from '@/lib/alertsLive'
 
 const TYPES = [
   { value: 'panic', label: 'Panic' },
@@ -28,6 +30,12 @@ const CALL_ACTIONS: Record<string, Array<'police' | 'guard' | 'emergency'>> = {
   fire: ['emergency', 'guard'],
   medical: ['emergency', 'guard'],
   general: [],
+  drill: [],
+}
+
+function isOld(a: Alert) {
+  const v = /[zZ]|[+-]\d{2}:?\d{2}$/.test(a.created_at) ? a.created_at : a.created_at + 'Z'
+  return Date.now() - new Date(v.replace(/(\.\d{3})\d+/, '$1')).getTime() > 24 * 3600 * 1000
 }
 
 export default function Alerts() {
@@ -44,8 +52,8 @@ export default function Alerts() {
   const [guards, setGuards] = useState<{ id: string; name?: string; phone?: string }[]>([])
   const canManage = user?.role === 'guard' || user?.role === 'admin' || user?.role === 'super_admin'
 
-  async function load() {
-    setLoading(true)
+  async function load(quiet = false) {
+    if (!quiet) setLoading(true)
     try {
       setAlerts(await listAlerts())
     } finally {
@@ -55,7 +63,29 @@ export default function Alerts() {
 
   useEffect(() => {
     load()
+    // The alert centre announces every change (new alert, someone responding).
+    const on = () => load(true)
+    window.addEventListener('nexhood:alerts-changed', on)
+    return () => window.removeEventListener('nexhood:alerts-changed', on)
   }, [])
+
+  const [closingOld, setClosingOld] = useState(false)
+  const oldOpen = alerts.filter((a) => a.status !== 'resolved' && isOld(a))
+  async function closeOld() {
+    setClosingOld(true)
+    try {
+      for (const a of oldOpen) await resolveAlert(a.id)
+      await load(true)
+      setNotice(`Closed ${oldOpen.length} old alert${oldOpen.length === 1 ? '' : 's'}.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not close old alerts')
+    } finally {
+      setClosingOld(false)
+    }
+  }
+
+  const myOpen = alerts.find((a) => a.sender_id === user?.id && a.status !== 'resolved' && !isOld(a) && !a.is_drill)
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
   // Email delivery isn't instant enough to rely on for real emergencies —
   // a direct call is the actual fast path, so pull the estate's police
@@ -78,20 +108,42 @@ export default function Alerts() {
       .catch(() => {})
   }, [user?.estate_id])
 
-  async function handleSend(e: FormEvent) {
-    e.preventDefault()
+  async function send(kind: string) {
+    unlockAudio()
     setError('')
+    setNotice('')
     setSending(true)
     try {
-      const priority = type === 'panic' ? 'critical' : 'high'
-      const alert = await createAlert({ type, message: message || undefined, priority })
+      const priority = kind === 'panic' ? 'critical' : 'high'
+      const alert = await createAlert({ type: kind, message: message || undefined, priority })
       setAlerts((prev) => [alert, ...prev])
       setMessage('')
+      if (kind === 'drill') setNotice('Test alert sent. Every guard and admin phone should ring now. Check who responds and how fast.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not send alert')
     } finally {
       setSending(false)
     }
+  }
+
+  // Panic: a 3-second countdown with Cancel, so a pocket tap doesn't raise a false alarm.
+  const [countdown, setCountdown] = useState<number | null>(null)
+  useEffect(() => {
+    if (countdown === null) return
+    if (countdown <= 0) {
+      setCountdown(null)
+      send('panic')
+      return
+    }
+    if ('vibrate' in navigator) navigator.vibrate(120)
+    const t = window.setTimeout(() => setCountdown((c) => (c === null ? null : c - 1)), 1000)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown])
+
+  async function handleSend(e: FormEvent) {
+    e.preventDefault()
+    await send(type)
   }
 
   // Each of these used to fail silently on error — a 403/404 would just
@@ -138,7 +190,7 @@ export default function Alerts() {
     <div>
       <PageHeader
         title="Alerts"
-        subtitle="Send and respond to real-time emergency alerts."
+        subtitle={canManage ? 'Every alert rings guard and admin phones until someone responds.' : 'Press the button and every guard on duty is alerted at once.'}
         action={
           policePhone ? (
             <a href={`tel:${policePhone}`} className="btn-alert">
@@ -180,10 +232,53 @@ export default function Alerts() {
         </div>
       )}
 
+      {myOpen && (
+        <div className={`card p-5 mb-6 border-2 ${myOpen.acknowledged_by.length ? 'border-emerald-300 bg-emerald-50/60' : 'border-alert/40 bg-alert-50/60'}`} role="status">
+          {myOpen.acknowledged_by.length ? (
+            <p className="flex items-center gap-2 font-semibold text-emerald-800">
+              <CheckCircle2 className="h-5 w-5" /> {myOpen.acknowledged_by[0].name || 'Security'} is responding to your alert
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 font-semibold text-alert-700">
+              <Clock className="h-5 w-5 animate-pulse" /> Alert sent. Guards’ phones are ringing. Waiting for someone to respond…
+            </p>
+          )}
+          <p className="text-sm text-midnight-500 mt-1">If you can, call the gate guard or the police using the buttons below.</p>
+        </div>
+      )}
+
+      {canManage && <div className="mb-6"><AlertSetupCard hideWhenOn compact /></div>}
+
+      {!canManage && (
+        countdown !== null ? (
+          <div className="w-full mb-6 rounded-3xl bg-midnight-900 text-white py-6 px-5 shadow-xl flex flex-col items-center gap-3" role="status">
+            <span className="font-display text-5xl font-semibold tabular-nums">{countdown}</span>
+            <span className="text-sm text-white/85">Sending panic alert…</span>
+            <button type="button" onClick={() => setCountdown(null)} className="rounded-full bg-white text-midnight-900 px-8 py-3 font-semibold">
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              unlockAudio()
+              setCountdown(3)
+            }}
+            disabled={sending}
+            className="w-full mb-6 rounded-3xl bg-alert text-white py-8 shadow-xl active:scale-[0.98] transition flex flex-col items-center justify-center gap-2 disabled:opacity-70"
+          >
+            {sending ? <Spinner className="h-8 w-8" /> : <Siren className="h-10 w-10" />}
+            <span className="font-display text-2xl font-semibold">Panic button</span>
+            <span className="text-sm text-white/85">Alerts every guard and the admin at once</span>
+          </button>
+        )
+      )}
+
       <div className="card p-6 mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Siren className="h-5 w-5 text-alert" />
-          <h3 className="font-display font-semibold text-midnight-900">Send an alert</h3>
+          <h3 className="font-display font-semibold text-midnight-900">{canManage ? 'Send an alert' : 'Other kinds of alert'}</h3>
         </div>
         <form onSubmit={handleSend} className="flex flex-col sm:flex-row gap-3">
           <select className="input sm:w-48" value={type} onChange={(e) => setType(e.target.value)}>
@@ -194,7 +289,24 @@ export default function Alerts() {
             {sending ? <Spinner className="h-4 w-4" /> : 'Send alert'}
           </button>
         </form>
+        {isAdmin && (
+          <div className="mt-4 pt-4 border-t border-midnight-50 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => send('drill')} disabled={sending} className="btn-outline text-sm">
+              <FlaskConical className="h-4 w-4" /> Run a test alert
+            </button>
+            <p className="text-xs text-midnight-400 flex-1 min-w-[12rem]">Rings every guard and admin phone, marked as a test. Do one each month to check everyone responds.</p>
+          </div>
+        )}
       </div>
+
+      {canManage && oldOpen.length > 0 && (
+        <div className="mb-6 rounded-xl bg-amber-50 text-amber-800 text-sm px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <span>{oldOpen.length} alert{oldOpen.length === 1 ? ' is' : 's are'} still open from over a day ago. Close them so new emergencies stand out.</span>
+          <button type="button" onClick={closeOld} disabled={closingOld} className="btn-outline text-xs px-3 py-1.5">
+            {closingOld ? <Spinner className="h-3.5 w-3.5" /> : 'Close old alerts'}
+          </button>
+        </div>
+      )}
 
       <div className="card">
         {loading ? (
@@ -215,13 +327,21 @@ export default function Alerts() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <ShieldAlert className={`h-4 w-4 ${a.priority === 'critical' ? 'text-alert' : 'text-amber-500'}`} />
-                      <p className="font-medium text-midnight-900 capitalize">{a.type.replace('_', ' ')}</p>
+                      <p className="font-medium text-midnight-900 capitalize">{a.is_drill ? 'Test alert' : a.type.replace('_', ' ')}</p>
                       <Badge tone={a.priority === 'critical' || a.priority === 'high' ? 'alert' : 'warning'}>{a.priority}</Badge>
                       <Badge tone={statusTone(a.status)}>{a.status}</Badge>
                     </div>
+                    <p className="text-sm text-midnight-700 mt-1 flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 text-midnight-400" />
+                      <span className="font-semibold">{a.sender_apartment || 'Location not on file'}</span>
+                      <span className="text-midnight-400">· {a.sender_name || 'Resident'}</span>
+                    </p>
                     {a.message && <p className="text-sm text-midnight-500 mt-1">{a.message}</p>}
                     <p className="text-xs text-midnight-400 mt-1">
-                      {new Date(a.created_at).toLocaleString()} · {a.acknowledged_by.length} acknowledged
+                      {new Date(a.created_at).toLocaleString()} ·{' '}
+                      {a.acknowledged_by.length
+                        ? `${a.acknowledged_by.map((x) => x.name || x.role).join(', ')} responding`
+                        : a.status === 'resolved' ? 'closed' : <span className="text-alert-600 font-semibold">no one has responded yet</span>}
                       {a.police_status === 'notified' && ' · Police notified'}
                     </p>
                   </div>
@@ -254,16 +374,6 @@ export default function Alerts() {
                     )}
                     {canManage && (
                       <>
-                        {/* Email notification as its own action — the tel:
-                            call button only fires the email as a side
-                            effect of tapping, which does nothing on a
-                            desktop gatehouse computer. This makes the
-                            email path explicit and clickable anywhere. */}
-                        {actions.includes('police') && (
-                          <button onClick={() => handlePoliceCall(a.id)} className="btn-outline text-xs px-3 py-1.5">
-                            <Mail className="h-3.5 w-3.5" /> {a.police_status === 'notified' ? 'Email police again' : 'Email police'}
-                          </button>
-                        )}
                         {a.sender_phone && (
                           <a href={`tel:${a.sender_phone}`} className="btn-outline text-xs px-3 py-1.5">
                             <Phone className="h-3.5 w-3.5" /> Call {a.sender_name || 'sender'}
@@ -271,7 +381,7 @@ export default function Alerts() {
                         )}
                         {a.status !== 'resolved' && !acknowledgedByMe && (
                           <button onClick={() => handleAck(a.id)} className="btn-outline text-xs px-3 py-1.5">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Acknowledge
+                            <CheckCircle2 className="h-3.5 w-3.5" /> I'm responding
                           </button>
                         )}
                         {a.status !== 'resolved' && (

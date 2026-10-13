@@ -6,6 +6,7 @@ import { Topbar } from './Topbar'
 import { MobileTabBar } from './MobileTabBar'
 import { NAV_ITEMS } from './navConfig'
 import { NotificationsProvider } from '@/context/NotificationsContext'
+import { AlertCenterProvider } from '@/context/AlertCenter'
 
 export function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -17,6 +18,7 @@ export function AppLayout() {
 
   return (
     <NotificationsProvider>
+    <AlertCenterProvider>
     <div className="flex h-screen h-[100dvh] overflow-hidden bg-midnight-50/40">
       <div className="hidden lg:block">
         <Sidebar />
@@ -48,6 +50,7 @@ export function AppLayout() {
         <MobileTabBar onMore={() => setMobileOpen(true)} />
       </div>
     </div>
+    </AlertCenterProvider>
     </NotificationsProvider>
   )
 }

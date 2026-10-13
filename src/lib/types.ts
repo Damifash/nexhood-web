@@ -84,8 +84,12 @@ export interface Alert {
   sender_role: string
   estate_id: string
   created_at: string
-  acknowledged_by: { user_id: string; role: string; timestamp: string }[]
+  acknowledged_by: { user_id: string; role: string; name?: string; phone?: string; timestamp: string }[]
   police_status?: string
+  /** house / flat the alert came from */
+  sender_apartment?: string | null
+  is_drill?: boolean
+  escalation_level?: number
 }
 
 export interface Post {

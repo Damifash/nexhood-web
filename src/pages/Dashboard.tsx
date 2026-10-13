@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { getDashboard } from '@/lib/api'
 import type { AdminDashboard, ResidentDashboard } from '@/lib/types'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { AlertSetupCard } from '@/components/alerts/AlertSetupCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge, statusTone } from '@/components/ui/Badge'
 import { ActivityFeed, AttentionList, KpiTile, SetupChecklist } from '@/components/analytics/Widgets'
@@ -49,7 +50,8 @@ export default function Dashboard() {
 
       {data && (
         <div className="space-y-8">
-
+          {/* Guards and admins must get emergencies on their phone. */}
+          {(user?.role === 'guard' || isAdmin) && <AlertSetupCard hideWhenOn />}
 
           {isAdminDashboard(data) ? (
             <AdminOverview data={data} />
