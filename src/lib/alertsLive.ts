@@ -4,76 +4,120 @@ import { api } from '@/lib/api'
 import type { Alert } from '@/lib/types'
 
 /* ------------------------------------------------------------------ */
-/* Siren (generated with Web Audio, so there is no sound file to load) */
+/* Siren                                                               */
+/* iPhones mute Web Audio when the ring/silent switch is off, and only  */
+/* allow sound after a tap. So the siren is a real <audio> element (a   */
+/* generated WAV), "unlocked" on the first tap, with the audio session  */
+/* set to playback so it plays through the silent switch on iOS 17+.    */
 /* ------------------------------------------------------------------ */
-let ctx: AudioContext | null = null
+let sirenEl: HTMLAudioElement | null = null
 let sirenTimer: number | null = null
-let sirenNodes: { osc: OscillatorNode; gain: GainNode } | null = null
+let unlocked = false
+let ctx: AudioContext | null = null
 
-function audioCtx(): AudioContext | null {
-  if (typeof window === 'undefined') return null
-  const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-  if (!Ctor) return null
-  if (!ctx) ctx = new Ctor()
-  return ctx
+function setPlaybackSession() {
+  try {
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession
+    if (session) session.type = 'playback'
+  } catch {
+    /* older browsers */
+  }
 }
 
-/** Browsers only allow sound after the person has tapped the page once.
- * Called on the first tap anywhere in the app, so the siren can play later. */
+/** Builds a 2.4 second two-tone wail as a WAV file in memory. */
+function sirenWavUrl() {
+  const rate = 22050
+  const seconds = 2.4
+  const n = Math.floor(rate * seconds)
+  const buf = new ArrayBuffer(44 + n * 2)
+  const v = new DataView(buf)
+  const w = (o: number, str: string) => [...str].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)))
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ')
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true)
+  w(36, 'data'); v.setUint32(40, n * 2, true)
+  let phase = 0
+  for (let i = 0; i < n; i++) {
+    const t = (i / rate) % 1.2
+    const f = t < 0.6 ? 700 + (600 * t) / 0.6 : 1300 - (600 * (t - 0.6)) / 0.6
+    phase += (2 * Math.PI * f) / rate
+    // a little odd harmonic makes it cut through like a real siren
+    const sample = 0.75 * Math.sin(phase) + 0.2 * Math.sin(3 * phase)
+    v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, sample)) * 0x7fff, true)
+  }
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }))
+}
+
+function siren(): HTMLAudioElement | null {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return null
+  if (!sirenEl) {
+    sirenEl = new Audio(sirenWavUrl())
+    sirenEl.loop = true
+    sirenEl.preload = 'auto'
+    sirenEl.setAttribute('playsinline', '')
+  }
+  return sirenEl
+}
+
+/** Call from a tap. Plays the siren silently for a moment so the phone
+ * allows it to play for real later. */
 export function unlockAudio() {
-  const c = audioCtx()
-  if (!c) return
-  if (c.state === 'suspended') c.resume().catch(() => {})
-  // A silent blip "primes" iOS Safari.
+  setPlaybackSession()
+  const el = siren()
+  if (el && !unlocked && el.paused) {
+    el.muted = true
+    el.play()
+      .then(() => {
+        unlocked = true
+        if (!sirenTimer) {
+          el.pause()
+          el.currentTime = 0
+        }
+        el.muted = false
+      })
+      .catch(() => {
+        el.muted = false
+      })
+  }
+  // Web Audio too (used as a fallback on browsers without <audio> autoplay).
   try {
-    const o = c.createOscillator()
-    const g = c.createGain()
-    g.gain.value = 0
-    o.connect(g).connect(c.destination)
-    o.start()
-    o.stop(c.currentTime + 0.01)
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (Ctor && !ctx) ctx = new Ctor()
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
   } catch {
     /* ignore */
   }
 }
 
 export function audioReady() {
-  return !!ctx && ctx.state === 'running'
+  return unlocked
 }
 
-/** Two-tone wailing siren until stopSiren() (or maxMs) */
-export function startSiren(maxMs = 90_000) {
-  const c = audioCtx()
-  if (!c || sirenNodes) return
-  if (c.state === 'suspended') c.resume().catch(() => {})
-  const osc = c.createOscillator()
-  const gain = c.createGain()
-  osc.type = 'sawtooth'
-  gain.gain.value = 0.35
-  osc.connect(gain).connect(c.destination)
-  const t0 = c.currentTime
-  // Sweep 700Hz -> 1300Hz and back every 1.2s for the full duration.
-  for (let t = 0; t < maxMs / 1000; t += 1.2) {
-    osc.frequency.setValueAtTime(700, t0 + t)
-    osc.frequency.linearRampToValueAtTime(1300, t0 + t + 0.6)
-    osc.frequency.linearRampToValueAtTime(700, t0 + t + 1.2)
-  }
-  osc.start()
-  sirenNodes = { osc, gain }
+/** Starts the siren. Resolves false if the phone blocked the sound (no tap yet). */
+export async function startSiren(maxMs = 90_000): Promise<boolean> {
+  setPlaybackSession()
+  const el = siren()
+  if (!el) return false
+  if (sirenTimer) window.clearTimeout(sirenTimer)
   sirenTimer = window.setTimeout(stopSiren, maxMs)
+  try {
+    el.muted = false
+    el.volume = 1
+    el.currentTime = 0
+    await el.play()
+    unlocked = true
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function stopSiren() {
   if (sirenTimer) window.clearTimeout(sirenTimer)
   sirenTimer = null
-  if (sirenNodes) {
-    try {
-      sirenNodes.gain.gain.value = 0
-      sirenNodes.osc.stop()
-    } catch {
-      /* already stopped */
-    }
-    sirenNodes = null
+  if (sirenEl) {
+    sirenEl.pause()
+    sirenEl.currentTime = 0
   }
 }
 
@@ -134,16 +178,16 @@ export async function getPushState(): Promise<PushState> {
 }
 
 /** Ask permission (must be called from a tap), then register this phone. */
-export async function enablePush(): Promise<PushState> {
+export async function enablePush(fresh = false): Promise<PushState> {
   if (!pushSupported()) return isIOS() && !isStandalone() ? 'needs-install' : 'unsupported'
   const perm = await Notification.requestPermission()
   if (perm !== 'granted') return perm === 'denied' ? 'denied' : 'off'
-  return (await syncPush()) ? 'on' : 'server-off'
+  return (await syncPush(fresh)) ? 'on' : 'server-off'
 }
 
 /** Make sure this phone's subscription is saved on the server. Safe to call
  * on every app start once permission is granted. */
-export async function syncPush(): Promise<boolean> {
+export async function syncPush(fresh = false): Promise<boolean> {
   if (!pushSupported() || Notification.permission !== 'granted') return false
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
@@ -151,6 +195,11 @@ export async function syncPush(): Promise<boolean> {
     const { data } = await api.get('/api/push/public-key')
     if (!data?.enabled || !data.public_key) return false
     let sub = await reg.pushManager.getSubscription()
+    if (sub && fresh) {
+      // Start clean: iPhones sometimes keep a subscription that no longer delivers.
+      await sub.unsubscribe().catch(() => {})
+      sub = null
+    }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(data.public_key) })
     const json = sub.toJSON()
     await api.post('/api/push/subscribe', { endpoint: json.endpoint, keys: json.keys })
@@ -162,10 +211,11 @@ export async function syncPush(): Promise<boolean> {
 
 export async function sendTestPush() {
   const { data } = await api.post('/api/push/test')
-  return data as { sent: number; enabled: boolean }
+  return data as { sent: number; enabled: boolean; devices?: string[]; errors?: string[] }
 }
 
-/** While the app is open but in the background, show a phone notification. */
+/** Show a phone notification from the open app. On iPhone this is the only way to get the phone's own
+ * notification sound and vibration while NexHood is on screen. */
 export async function showLocalNotification(title: string, body: string, tag: string) {
   if (!pushSupported() || Notification.permission !== 'granted') return
   try {

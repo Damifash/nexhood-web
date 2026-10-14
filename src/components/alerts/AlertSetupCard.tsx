@@ -20,11 +20,12 @@ export function AlertSetupCard({ compact = false, hideWhenOn = false }: { compac
     getPushState().then(setState)
   }, [])
 
-  async function turnOn() {
+  async function turnOn(fresh = false) {
     unlockAudio()
     setBusy(true)
     setMsg('')
-    const s = await enablePush()
+    const s = await enablePush(fresh)
+    if (fresh && s === 'on') setMsg('Phone re-connected. Tap “Test siren and vibration” to check.')
     setState(s)
     if (s === 'server-off') setMsg('Phone notifications are not switched on on the server yet. The siren still works while the app is open.')
     setBusy(false)
@@ -33,7 +34,8 @@ export function AlertSetupCard({ compact = false, hideWhenOn = false }: { compac
   async function test() {
     unlockAudio()
     setTesting(true)
-    startSiren(3000)
+    const played = await startSiren(3000)
+    if (!played) setMsg('Your phone blocked the sound. Turn the volume up, tap the button again, and check the side switch is not on silent.')
     startVibration()
     window.setTimeout(() => {
       stopSiren()
@@ -43,7 +45,9 @@ export function AlertSetupCard({ compact = false, hideWhenOn = false }: { compac
     if (state === 'on') {
       try {
         const r = await sendTestPush()
-        setMsg(r.sent ? 'Test notification sent. It should appear on this phone in a few seconds.' : 'Siren tested. No notification was sent: phone notifications are not active on the server yet.')
+        if (r.errors && r.errors.length) setMsg(`Problem sending to this phone: ${r.errors[0]}`)
+        else if (r.sent) setMsg(`Test notification sent to ${r.sent} device${r.sent === 1 ? '' : 's'}. On iPhone, lock the screen or leave the app to see it.`)
+        else setMsg('No device is registered for your account yet. Tap “Turn on emergency alerts” again.')
       } catch {
         setMsg('Siren tested. The test notification could not be sent.')
       }
@@ -81,11 +85,16 @@ export function AlertSetupCard({ compact = false, hideWhenOn = false }: { compac
           {state === 'unsupported' && (
             <p className="mt-3 text-sm text-midnight-500">This browser can’t show phone notifications. Use Chrome on Android, or add NexHood to the home screen on iPhone. The siren still works while the app is open.</p>
           )}
-          {isIOS() && state === 'on' && <p className="mt-2 text-xs text-midnight-400">iPhones don’t let websites vibrate, but the notification and sound still come through.</p>}
+          {isIOS() && state === 'on' && <p className="mt-2 text-xs text-midnight-400">On iPhone the vibration comes from the notification. In Settings › Notifications › NexHood, turn on Sounds and Banners, and set Time Sensitive / Allow while Focus is on.</p>}
 
           <div className="mt-4 flex flex-wrap gap-2">
+            {state === 'on' && (
+              <button type="button" onClick={() => turnOn(true)} disabled={busy} className="btn-outline text-sm">
+                {busy ? <Spinner className="h-4 w-4" /> : <BellRing className="h-4 w-4" />} Re-connect this phone
+              </button>
+            )}
             {(state === 'off' || state === 'server-off') && (
-              <button type="button" onClick={turnOn} disabled={busy} className="btn-alert text-sm">
+              <button type="button" onClick={() => turnOn()} disabled={busy} className="btn-alert text-sm">
                 {busy ? <Spinner className="h-4 w-4" /> : <BellRing className="h-4 w-4" />} Turn on emergency alerts
               </button>
             )}

@@ -11,6 +11,7 @@ interface AuthContextValue {
   logout: () => void
   setUser: (u: User) => void
   refreshUser: () => Promise<void>
+  setSessionToken: (t: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -25,6 +26,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('nexhood_user', JSON.stringify(user))
     setToken(token)
     setUserState(user)
+  }
+
+  // After a password change the server issues a fresh token (old ones stop working).
+  function setSessionToken(t: string) {
+    localStorage.setItem('nexhood_token', t)
+    setToken(t)
   }
 
   function setUser(u: User) {
@@ -86,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser, refreshUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser, refreshUser, setSessionToken }}>
       {children}
     </AuthContext.Provider>
   )

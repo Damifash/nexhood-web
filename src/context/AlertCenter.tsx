@@ -44,18 +44,18 @@ export function AlertCenterProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null)
   const dismissed = useRef<Set<string>>(new Set())
   const knownAcks = useRef<Map<string, number>>(new Map())
+  const notified = useRef<Set<string>>(new Set())
+  const [needsTap, setNeedsTap] = useState(false)
   const firstLoad = useRef(true)
   const isStaff = user?.role === 'guard' || user?.role === 'admin' || user?.role === 'super_admin'
 
   // First tap anywhere unlocks sound for later.
   useEffect(() => {
+    // iPhones only count touchend/click as a real tap for sound.
     const on = () => unlockAudio()
-    window.addEventListener('pointerdown', on, { passive: true })
-    window.addEventListener('keydown', on)
-    return () => {
-      window.removeEventListener('pointerdown', on)
-      window.removeEventListener('keydown', on)
-    }
+    const evs = ['touchend', 'click', 'keydown'] as const
+    evs.forEach((e) => window.addEventListener(e, on, { passive: true }))
+    return () => evs.forEach((e) => window.removeEventListener(e, on))
   }, [])
 
   // Keep this phone registered for push if the person already allowed it.
@@ -96,7 +96,10 @@ export function AlertCenterProvider({ children }: { children: ReactNode }) {
           }
           return urgent || null
         })
-        if (urgent && document.hidden) {
+        if (urgent && !notified.current.has(urgent.id)) {
+          // Also a system notification: on iPhone this is what makes the phone
+          // itself ring and vibrate, even with NexHood open.
+          notified.current.add(urgent.id)
           showLocalNotification(`🚨 ${ALERT_LABEL[urgent.type] || 'Alert'} · ${urgent.sender_apartment || 'location not on file'}`, `${urgent.sender_name || 'A resident'} needs help. Tap to respond.`, `alert-${urgent.id}`)
         }
       }
@@ -142,9 +145,10 @@ export function AlertCenterProvider({ children }: { children: ReactNode }) {
   const ringing = !!takeover && takeover.status === 'active' && !muted
   useEffect(() => {
     if (ringing) {
-      startSiren()
+      startSiren().then((ok) => setNeedsTap(!ok))
       startVibration()
     } else {
+      setNeedsTap(false)
       stopSiren()
       stopVibration()
     }
@@ -250,6 +254,18 @@ export function AlertCenterProvider({ children }: { children: ReactNode }) {
           </div>
 
           <div className="relative px-5 pb-6 space-y-3 max-w-lg w-full mx-auto">
+            {needsTap && takeover.status === 'active' && !muted && (
+              <button
+                type="button"
+                onClick={() => {
+                  unlockAudio()
+                  startSiren().then((ok) => setNeedsTap(!ok))
+                }}
+                className="w-full rounded-2xl bg-midnight-900 text-white py-3 font-semibold"
+              >
+                Tap to turn on the siren sound
+              </button>
+            )}
             {takeover.status === 'active' && (
               <button type="button" onClick={respond} disabled={busy} className="w-full rounded-2xl bg-white text-alert-700 py-4 text-lg font-bold shadow-xl active:scale-[0.98] transition">
                 {busy ? 'Sending…' : "I'm responding"}

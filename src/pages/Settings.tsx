@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { AlertCircle, CheckCircle2, Plus, Trash2, Pencil, X } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Plus, Trash2, Pencil, X, Sun, Moon, Monitor } from 'lucide-react'
 import { changePassword, getEstate, listUsers, updateEstateSettings, updateMyProfile, updateEstateProfile } from '@/lib/api'
 import { connectPaystack, getFinanceSettings, getPaystackBanks, getPaystackStatus, updateFinanceSettings, type PaystackStatus } from '@/lib/finance'
 import { useAuth } from '@/context/AuthContext'
@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge } from '@/components/ui/Badge'
 import { AlertSetupCard } from '@/components/alerts/AlertSetupCard'
+import { useTheme, type ThemeChoice } from '@/context/ThemeContext'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -16,6 +17,8 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Manage your profile and account security." />
 
       <AlertSetupCard />
+
+      <ThemeCard />
 
       <ProfileCard />
 
@@ -39,6 +42,7 @@ function ProfileCard() {
   const [email, setEmail] = useState(user?.email || '')
   const [apartment, setApartment] = useState(user?.apartment || '')
   const [estateName, setEstateName] = useState(user?.estate_name || '')
+  const [currentPassword, setCurrentPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -49,6 +53,7 @@ function ProfileCard() {
     setEmail(user?.email || '')
     setApartment(user?.apartment || '')
     setEstateName(user?.estate_name || '')
+    setCurrentPassword('')
     setError('')
     setSuccess(false)
     setEditing(true)
@@ -61,7 +66,14 @@ function ProfileCard() {
     setSuccess(false)
     setLoading(true)
     try {
-      const updated = await updateMyProfile({ name, phone, email, apartment: apartment || undefined })
+      const emailChanged = email.trim().toLowerCase() !== (user.email || '').toLowerCase()
+      const updated = await updateMyProfile({
+        name,
+        phone,
+        email,
+        apartment: apartment || undefined,
+        current_password: emailChanged ? currentPassword : undefined,
+      })
       let mergedUser = updated
 
       // Estate name is a separate resource (admin-only), saved alongside
@@ -109,7 +121,7 @@ function ProfileCard() {
             <label className="label">Full name</label>
             <input required minLength={2} className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label">Email</label>
               <input type="email" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -119,6 +131,20 @@ function ProfileCard() {
               <input required className="input" placeholder="08012345678" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
           </div>
+          {email.trim().toLowerCase() !== (user?.email || '').toLowerCase() && (
+            <div>
+              <label className="label">Current password</label>
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                className="input"
+                placeholder="Needed to change your email"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+            </div>
+          )}
           <div>
             <label className="label">Apartment / house number</label>
             <input className="input" placeholder="Optional" value={apartment} onChange={(e) => setApartment(e.target.value)} />
@@ -174,6 +200,7 @@ function ProfileCard() {
 }
 
 function PasswordCard() {
+  const { setSessionToken } = useAuth()
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -186,7 +213,9 @@ function PasswordCard() {
     setSuccess(false)
     setLoading(true)
     try {
-      await changePassword(oldPassword, newPassword)
+      const res = await changePassword(oldPassword, newPassword)
+      // Other phones/computers are signed out; keep this one signed in.
+      if (res?.token) setSessionToken(res.token)
       setSuccess(true)
       setOldPassword('')
       setNewPassword('')
@@ -207,7 +236,7 @@ function PasswordCard() {
       )}
       {success && (
         <div className="flex items-start gap-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm px-4 py-3 mb-4">
-          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> <span>Password updated.</span>
+          <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> <span>Password updated. Any other phone or computer signed in to your account has been logged out.</span>
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -537,6 +566,41 @@ function PaystackCard() {
           <button type="submit" disabled={busy} className="btn-primary">{busy ? <Spinner className="h-4 w-4" /> : 'Connect account'}</button>
         </form>
       )}
+    </div>
+  )
+}
+
+function ThemeCard() {
+  const { choice, setChoice } = useTheme()
+  const options: { value: ThemeChoice; label: string; icon: typeof Sun }[] = [
+    { value: 'light', label: 'Light', icon: Sun },
+    { value: 'dark', label: 'Night', icon: Moon },
+    { value: 'system', label: 'Same as phone', icon: Monitor },
+  ]
+  return (
+    <div className="card p-6">
+      <h3 className="font-display font-semibold text-midnight-900">Appearance</h3>
+      <p className="text-sm text-midnight-500 mt-1 mb-4">Night mode is easier on the eyes for guards on night shift.</p>
+      <div className="grid grid-cols-3 gap-2">
+        {options.map((o) => {
+          const Icon = o.icon
+          const active = choice === o.value
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setChoice(o.value)}
+              aria-pressed={active}
+              className={`rounded-xl border px-2 py-3 text-xs font-medium flex flex-col items-center gap-1.5 transition-colors ${
+                active ? 'border-royal bg-royal-50 text-royal' : 'border-midnight-200 text-midnight-600 hover:bg-midnight-50'
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+              {o.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -1,4 +1,5 @@
-import { Menu } from 'lucide-react'
+import { Menu, Moon, Sun } from 'lucide-react'
+import { useTheme } from '@/context/ThemeContext'
 import { useAuth } from '@/context/AuthContext'
 import { useNotifications, type Section } from '@/context/NotificationsContext'
 import { ShieldMark } from '@/components/Logo'
@@ -31,11 +32,27 @@ export function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () 
           <span className="font-display font-semibold text-midnight-900 truncate">{user?.estate_name || 'NexHood'}</span>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <ThemeToggle />
         <div className="h-9 w-9 rounded-full bg-royal-50 text-royal-600 flex items-center justify-center text-xs font-semibold">
           {initials || 'NH'}
         </div>
       </div>
     </header>
+  )
+}
+
+function ThemeToggle() {
+  const { dark, toggle } = useTheme()
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      className="h-9 w-9 rounded-full flex items-center justify-center text-midnight-500 hover:text-midnight-900 hover:bg-midnight-50 transition-colors"
+      aria-label={dark ? 'Switch to light mode' : 'Switch to night mode'}
+      title={dark ? 'Light mode' : 'Night mode'}
+    >
+      {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+    </button>
   )
 }

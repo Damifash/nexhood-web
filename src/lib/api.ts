@@ -89,7 +89,7 @@ export async function fetchMe() {
   return data as User
 }
 
-export async function updateMyProfile(payload: { name?: string; phone?: string; email?: string; apartment?: string }) {
+export async function updateMyProfile(payload: { name?: string; phone?: string; email?: string; apartment?: string; current_password?: string }) {
   try {
     const { data } = await api.patch('/api/users/me', payload)
     return data as User
@@ -174,7 +174,7 @@ export async function resetPassword(token: string, new_password: string) {
 export async function changePassword(old_password: string, new_password: string) {
   try {
     const { data } = await api.patch('/api/users/me/password', { old_password, new_password })
-    return data
+    return data as { message: string; token?: string }
   } catch (e) {
     throw new Error(errMsg(e, 'Could not change password'))
   }

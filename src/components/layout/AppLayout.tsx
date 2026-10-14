@@ -7,8 +7,18 @@ import { MobileTabBar } from './MobileTabBar'
 import { NAV_ITEMS } from './navConfig'
 import { NotificationsProvider } from '@/context/NotificationsContext'
 import { AlertCenterProvider } from '@/context/AlertCenter'
+import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 
 export function AppLayout() {
+  return (
+    <ThemeProvider>
+      <AppShell />
+    </ThemeProvider>
+  )
+}
+
+function AppShell() {
+  const { dark } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
 
@@ -19,7 +29,7 @@ export function AppLayout() {
   return (
     <NotificationsProvider>
     <AlertCenterProvider>
-    <div className="flex h-screen h-[100dvh] overflow-hidden bg-midnight-50/40">
+    <div className={`flex h-screen h-[100dvh] overflow-hidden bg-midnight-50/40 ${dark ? 'theme-dark' : ''}`}>
       <div className="hidden lg:block">
         <Sidebar />
       </div>
