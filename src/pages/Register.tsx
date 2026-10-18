@@ -86,8 +86,7 @@ export default function Register() {
           <span>
             I am 18 or older and agree to the{' '}
             <Link to="/terms" target="_blank" className="text-royal font-medium underline">Terms of Service</Link> and{' '}
-            <Link to="/privacy" target="_blank" className="text-royal font-medium underline">Privacy Policy</Link>, including my data being stored
-            with providers outside Nigeria as the policy explains.
+            <Link to="/privacy" target="_blank" className="text-royal font-medium underline">Privacy Policy</Link>
           </span>
         </label>
         <button type="submit" disabled={loading} className="btn-primary w-full mt-2">

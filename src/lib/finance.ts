@@ -76,6 +76,7 @@ export interface Invoice {
   due_date: string
   overdue: boolean
   paid_from_credit?: number
+  note?: string | null
 }
 export interface Payment {
   id: string
@@ -174,9 +175,11 @@ export const listCharges = () => call<Charge[]>(api.get('/api/charges'), 'Could 
 export const createCharge = (body: { name: string; category: ChargeCategory; amount: number; frequency: Charge['frequency']; type_amounts?: Record<string, number> }) =>
   call<Charge>(api.post('/api/charges', body), 'Could not add bill type')
 export const updateCharge = (id: string, body: Partial<{ name: string; amount: number; active: boolean }>) => call<Charge>(api.patch(`/api/charges/${id}`, body), 'Could not update bill type')
-export const issueBills = (id: string, body: { period: string; due_date: string }) =>
+export const issueBills = (id: string, body: { period: string; due_date: string; unit_ids?: string[] }) =>
   call<{ issued: number; skipped: number }>(api.post(`/api/charges/${id}/issue`, body), 'Could not issue bills')
 export const listInvoices = (params?: { status?: string; unit_id?: string; period?: string }) => call<Invoice[]>(api.get('/api/invoices', { params }), 'Could not load bills')
+export const createSingleBill = (body: { unit_id: string; title: string; amount: number; due_date: string; category?: ChargeCategory; note?: string }) =>
+  call<Invoice & { emailed: number }>(api.post('/api/invoices', body), 'Could not send the bill')
 export const voidInvoice = (id: string) => call<{ message: string }>(api.post(`/api/invoices/${id}/void`), 'Could not cancel bill')
 // payments
 export const createPayment = (body: { amount: number; method: Payment['method']; reference?: string; invoice_id?: string; unit_id?: string; proof_image?: string; note?: string }) =>

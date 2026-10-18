@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ArrowRight, Banknote, BellRing, Building2, Check, CreditCard, Eye, Home, Plus, Receipt, Send, Tags, Upload, Wallet } from 'lucide-react'
+import { ArrowRight, Banknote, BellRing, Building2, Check, CreditCard, Eye, FilePlus2, Home, Plus, Receipt, Search, Send, Tags, Upload, Wallet } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { listUsers } from '@/lib/api'
 import type { User } from '@/lib/types'
 import {
   CHARGE_LABEL, confirmPayment, createCharge, createPayment, createUnit, currentMonth, getArrears, getFinanceSettings, getMyFinance,
   getPaymentProof, getStatement, importUnits, issueBills, listCharges, listInvoices, listPayments, listUnits, monthLabel, rejectPayment,
-  updateCharge, updateUnit, voidInvoice, getPaystackStatus, quotePaystack, startPaystack, verifyPaystack, getFinanceSetup, sendReminders, updateFinanceSettings,
+  updateCharge, updateUnit, voidInvoice, createSingleBill, getPaystackStatus, quotePaystack, startPaystack, verifyPaystack, getFinanceSetup, sendReminders, updateFinanceSettings,
   type FinanceSetup,
   type PaystackStatus, type ArrearsRow, type Charge, type ChargeCategory, type Invoice, type MyFinance, type Payment, type Statement, type Unit,
 } from '@/lib/finance'
@@ -349,6 +349,7 @@ function InvoiceList({ items, onPay, onVoid, showUnit = false }: { items: Invoic
               {i.amount_paid > 0 && i.status !== 'paid' && ` · ₦${i.amount_paid.toLocaleString()} paid`}
               {i.paid_from_credit ? ` · ₦${i.paid_from_credit.toLocaleString()} from estate balance` : ''}
             </p>
+            {i.note && <p className="text-xs text-midnight-500 mt-0.5">{i.note}</p>}
           </div>
           <div className="flex items-center gap-3">
             <Money value={i.status === 'paid' ? i.amount : i.balance} className="font-semibold text-midnight-900" />
@@ -873,6 +874,7 @@ function AdminCharges({ autoNew = false }: { autoNew?: boolean }) {
   const [filter, setFilter] = useState<'open' | 'paid' | ''>('open')
   const [newOpen, setNewOpen] = useState(autoNew)
   const [issueFor, setIssueFor] = useState<Charge | null>(null)
+  const [singleOpen, setSingleOpen] = useState(false)
   const [msg, setMsg] = useState('')
   const [loading, setLoading] = useState(true)
   async function load() {
@@ -896,9 +898,12 @@ function AdminCharges({ autoNew = false }: { autoNew?: boolean }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 sm:px-6 pt-5 pb-3">
           <div>
             <h3 className="font-display font-semibold text-midnight-900">Bill types</h3>
-            <p className="text-xs text-midnight-400">Set each charge once, then send it every month, quarter or year.</p>
+            <p className="text-xs text-midnight-400">Set each charge once, then send it to every house or only the houses you pick. For a one-off charge to one house (a fine, a gate remote), use “Bill one house”.</p>
           </div>
-          <button className="btn-primary text-xs px-3 py-2 whitespace-nowrap self-start sm:self-auto" onClick={() => setNewOpen(true)}><Plus className="h-3.5 w-3.5" /> New bill type</button>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <button className="btn-outline text-xs px-3 py-2 whitespace-nowrap" onClick={() => setSingleOpen(true)}><FilePlus2 className="h-3.5 w-3.5" /> Bill one house</button>
+            <button className="btn-primary text-xs px-3 py-2 whitespace-nowrap" onClick={() => setNewOpen(true)}><Plus className="h-3.5 w-3.5" /> New bill type</button>
+          </div>
         </div>
         {charges.length === 0 ? (
           <p className="px-6 pb-6 text-sm text-midnight-400">No bill types yet. Start with your service charge.</p>
@@ -955,6 +960,16 @@ function AdminCharges({ autoNew = false }: { autoNew?: boolean }) {
       </section>
 
       {newOpen && <NewChargeModal onClose={() => setNewOpen(false)} onDone={() => { setNewOpen(false); load() }} />}
+      {singleOpen && (
+        <SingleBillModal
+          onClose={() => setSingleOpen(false)}
+          onDone={(m) => {
+            setSingleOpen(false)
+            setMsg(m)
+            load()
+          }}
+        />
+      )}
       {issueFor && (
         <IssueModal
           charge={issueFor}
@@ -1049,9 +1064,26 @@ function IssueModal({ charge, onClose, onDone }: { charge: Charge; onClose: () =
     loadUnits()
   }, [])
   const typePrices = charge.type_amounts || {}
-  const preview = (units || []).filter((u) => u.active).reduce((sum, u) => sum + (u.unit_type && u.unit_type in typePrices ? typePrices[u.unit_type] : charge.amount), 0)
-  const activeCount = (units || []).filter((u) => u.active).length
-  const untyped = Object.keys(typePrices).length && units ? units.filter((u) => u.active && !(u.unit_type && u.unit_type in typePrices)) : []
+  const [who, setWho] = useState<'all' | 'some'>('all')
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [q, setQ] = useState('')
+  const activeUnits = (units || []).filter((u) => u.active)
+  const targets = who === 'all' ? activeUnits : activeUnits.filter((u) => picked.has(u.id))
+  const priceOf = (u: Unit) => (u.unit_type && u.unit_type in typePrices ? typePrices[u.unit_type] : charge.amount)
+  const preview = targets.reduce((sum, u) => sum + priceOf(u), 0)
+  const activeCount = targets.length
+  const untyped = Object.keys(typePrices).length && units ? targets.filter((u) => !(u.unit_type && u.unit_type in typePrices)) : []
+  const shown = activeUnits.filter((u) => {
+    const t = q.trim().toLowerCase()
+    return !t || u.label.toLowerCase().includes(t) || u.occupants.some((o) => o.name.toLowerCase().includes(t))
+  })
+  const toggle = (id: string) =>
+    setPicked((cur) => {
+      const next = new Set(cur)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function submit(e: FormEvent) {
@@ -1059,7 +1091,11 @@ function IssueModal({ charge, onClose, onDone }: { charge: Charge; onClose: () =
     setBusy(true)
     setError('')
     try {
-      onDone(await issueBills(charge.id, { period, due_date: new Date(`${due}T23:59:00`).toISOString() }))
+      onDone(await issueBills(charge.id, {
+        period,
+        due_date: new Date(`${due}T23:59:00`).toISOString(),
+        ...(who === 'some' ? { unit_ids: Array.from(picked) } : {}),
+      }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not issue')
       setBusy(false)
@@ -1078,6 +1114,46 @@ function IssueModal({ charge, onClose, onDone }: { charge: Charge; onClose: () =
           <label className="label" htmlFor="is-d">Due date</label>
           <input id="is-d" required type="date" className="input" value={due} onChange={(e) => setDue(e.target.value)} />
         </div>
+        <fieldset>
+          <legend className="label">Who gets this bill</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(['all', 'some'] as const).map((w) => (
+              <button
+                key={w}
+                type="button"
+                aria-pressed={who === w}
+                onClick={() => setWho(w)}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-medium ${who === w ? 'border-royal bg-royal-50 text-royal' : 'border-midnight-200 text-midnight-600 hover:bg-midnight-50'}`}
+              >
+                {w === 'all' ? 'Every house' : 'Choose houses'}
+              </button>
+            ))}
+          </div>
+          {who === 'some' && units && (
+            <div className="mt-3 rounded-xl border border-midnight-100">
+              <div className="relative border-b border-midnight-100">
+                <Search className="h-4 w-4 text-midnight-300 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input className="w-full bg-transparent pl-9 pr-3 py-2.5 text-base sm:text-sm outline-none text-midnight-900" placeholder="Search house or resident" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search houses" />
+              </div>
+              <ul className="max-h-56 overflow-y-auto divide-y divide-midnight-50">
+                {shown.map((u) => (
+                  <li key={u.id}>
+                    <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer">
+                      <input type="checkbox" className="h-4 w-4 accent-royal shrink-0" checked={picked.has(u.id)} onChange={() => toggle(u.id)} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-midnight-900 truncate">{u.label}</span>
+                        <span className="block text-xs text-midnight-400 truncate">{u.occupants.length ? u.occupants.map((o) => o.name).join(', ') : 'No one linked'}</span>
+                      </span>
+                      <span className="text-xs text-midnight-500 tabular-nums shrink-0">₦{priceOf(u).toLocaleString()}</span>
+                    </label>
+                  </li>
+                ))}
+                {shown.length === 0 && <li className="px-3 py-3 text-sm text-midnight-400">No house matches.</li>}
+              </ul>
+              <p className="px-3 py-2 text-xs text-midnight-400 border-t border-midnight-100">{picked.size} chosen</p>
+            </div>
+          )}
+        </fieldset>
         {untyped.length > 0 && (
           <div className="rounded-xl bg-amber-50 text-amber-800 text-xs px-3 py-2.5">
             <p>
@@ -1090,12 +1166,95 @@ function IssueModal({ charge, onClose, onDone }: { charge: Charge; onClose: () =
           <div className="rounded-xl bg-midnight-50/70 px-4 py-3 text-sm">
             <p className="text-midnight-600">{activeCount} house{activeCount === 1 ? '' : 's'} will get this bill</p>
             <p className="font-display text-xl font-semibold text-midnight-900 tabular-nums">Total <Money value={preview} /></p>
-            <p className="text-xs text-midnight-400 mt-0.5">Residents get an email. Any estate balance they have is used first.</p>
+            <p className="text-xs text-midnight-400 mt-0.5">Only {who === 'all' ? 'these houses' : 'the houses you chose'} get an email. Any estate balance they have is used first.</p>
           </div>
         )}
-        <button type="submit" disabled={busy || activeCount === 0} className="btn-alert w-full">{busy ? <Spinner className="h-4 w-4" /> : 'Send bills now'}</button>
+        <button type="submit" disabled={busy || activeCount === 0} className="btn-alert w-full">{busy ? <Spinner className="h-4 w-4" /> : activeCount === 1 ? 'Send 1 bill now' : `Send ${activeCount} bills now`}</button>
       </form>
       {typesOpen && <UnitTypesModal onClose={() => setTypesOpen(false)} onDone={() => { setTypesOpen(false); loadUnits() }} />}
+    </Modal>
+  )
+}
+
+/** A one-off bill for ONE house: a fine, a damaged gate, a new gate remote,
+ *  a past balance. It behaves like any other bill once sent. */
+function SingleBillModal({ preset, onClose, onDone }: { preset?: Unit; onClose: () => void; onDone: (msg: string) => void }) {
+  const [units, setUnits] = useState<Unit[] | null>(preset ? [preset] : null)
+  const [unitId, setUnitId] = useState(preset?.id || '')
+  const [title, setTitle] = useState('')
+  const [amount, setAmount] = useState('')
+  const [category, setCategory] = useState<ChargeCategory>('other')
+  const [note, setNote] = useState('')
+  const today = new Date()
+  const [due, setDue] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14).toISOString().slice(0, 10))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!preset) listUnits().then((u) => setUnits(u.filter((x) => x.active))).catch(() => setUnits([]))
+  }, [preset])
+  const unit = (units || []).find((u) => u.id === unitId)
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    const n = Math.round(Number(amount.replace(/[^\d.]/g, '')))
+    if (!unitId) return setError('Choose the house to bill.')
+    if (!n || n <= 0) return setError('Enter the amount in naira.')
+    setBusy(true)
+    setError('')
+    try {
+      const r = await createSingleBill({ unit_id: unitId, title: title.trim(), amount: n, category, note: note.trim() || undefined, due_date: new Date(`${due}T23:59:00`).toISOString() })
+      onDone(`Sent “${r.title}” (₦${n.toLocaleString()}) to ${r.unit_label}.${r.emailed ? ' They have been emailed.' : ' No one is linked to this house yet, so no email went out.'}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send the bill')
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal open onClose={onClose} title={preset ? `Send a bill to ${preset.label}` : 'Bill one house'}>
+      <form onSubmit={submit} className="space-y-4">
+        <ErrorBox message={error} />
+        {!preset && (
+          <div>
+            <label className="label" htmlFor="sb-u">House</label>
+            <select id="sb-u" required className="input" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+              <option value="">{units ? 'Choose a house' : 'Loading…'}</option>
+              {(units || []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.label}
+                  {u.occupants.length ? ` · ${u.occupants.map((o) => o.name).join(', ')}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {unit && <p className="text-xs text-midnight-400 -mt-2">{unit.payer ? `Bill goes to ${unit.payer.name}.` : unit.occupants.length ? `Bill goes to ${unit.occupants.map((o) => o.name).join(', ')}.` : 'No one is linked to this house yet. Link a resident under Houses so they can see and pay it.'}</p>}
+        <div>
+          <label className="label" htmlFor="sb-t">What is it for?</label>
+          <input id="sb-t" required minLength={2} maxLength={80} className="input" placeholder="e.g. Replacement gate remote" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="label" htmlFor="sb-a">Amount (₦)</label>
+            <input id="sb-a" required inputMode="numeric" className="input" placeholder="15000" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </div>
+          <div>
+            <label className="label" htmlFor="sb-d">Due date</label>
+            <input id="sb-d" required type="date" className="input" value={due} onChange={(e) => setDue(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <label className="label" htmlFor="sb-c">Type</label>
+          <select id="sb-c" className="input" value={category} onChange={(e) => setCategory(e.target.value as ChargeCategory)}>
+            {(Object.keys(CHARGE_LABEL) as ChargeCategory[]).map((c) => (
+              <option key={c} value={c}>{CHARGE_LABEL[c]}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="sb-n">Note for the resident (optional)</label>
+          <textarea id="sb-n" rows={2} maxLength={300} className="input" placeholder="e.g. As agreed at the residents' meeting" value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <button type="submit" disabled={busy} className="btn-alert w-full">{busy ? <Spinner className="h-4 w-4" /> : 'Send this bill'}</button>
+      </form>
     </Modal>
   )
 }
@@ -1105,6 +1264,7 @@ function AdminUnits({ autoNew = false }: { autoNew?: boolean }) {
   const [people, setPeople] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [edit, setEdit] = useState<Unit | 'new' | null>(autoNew ? 'new' : null)
+  const [billFor, setBillFor] = useState<Unit | null>(null)
   const [typesOpen, setTypesOpen] = useState(false)
   const [msg, setMsg] = useState('')
   async function load() {
@@ -1162,6 +1322,7 @@ function AdminUnits({ autoNew = false }: { autoNew?: boolean }) {
                 <div className="flex items-center gap-3 text-sm">
                   {u.balance_due > 0 ? <Money value={u.balance_due} className="font-semibold text-alert-700" /> : <span className="text-emerald-700 text-xs font-semibold">Paid up</span>}
                   {u.credit > 0 && <Badge tone="success"><Wallet className="h-3 w-3" /> ₦{u.credit.toLocaleString()}</Badge>}
+                  <button className="text-xs font-semibold text-royal hover:underline" onClick={() => setBillFor(u)}>Send bill</button>
                   <button className="text-xs font-semibold text-royal hover:underline" onClick={() => setEdit(u)}>Edit</button>
                 </div>
               </li>
@@ -1171,6 +1332,7 @@ function AdminUnits({ autoNew = false }: { autoNew?: boolean }) {
       </div>
       {edit && <UnitModal unit={edit === 'new' ? undefined : edit} people={people} onClose={() => setEdit(null)} onDone={() => { setEdit(null); load() }} />}
       {typesOpen && <UnitTypesModal onClose={() => setTypesOpen(false)} onDone={() => { setTypesOpen(false); setMsg('House types saved.'); load() }} />}
+      {billFor && <SingleBillModal preset={billFor} onClose={() => setBillFor(null)} onDone={(m) => { setBillFor(null); setMsg(m); load() }} />}
     </div>
   )
 }
