@@ -257,3 +257,11 @@ body {
 .theme-dark .ring-white { --tw-ring-color: #0f1736; }
 .theme-dark .shadow-lg,
 .theme-dark .shadow-xl { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
+
+/* Terms / Privacy pages */
+.legal-body ul { list-style: disc; padding-left: 1.25rem; }
+.legal-body ul > li + li { margin-top: 0.35rem; }
+.legal-body strong { color: #071456; font-weight: 600; }
+.legal-body a { color: #2c3ed6; text-decoration: underline; }
+.legal-body table { width: 100%; font-size: 0.875rem; border-collapse: collapse; }
+.legal-body th, .legal-body td { text-align: left; vertical-align: top; padding: 0.5rem 0.5rem 0.5rem 0; border-bottom: 1px solid #e3e6f3; }

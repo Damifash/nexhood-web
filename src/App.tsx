@@ -13,6 +13,9 @@ import Analytics from '@/pages/Analytics'
 import Community from '@/pages/Community'
 import Welfare from '@/pages/Welfare'
 import UsersPage from '@/pages/Users'
+import Billing from '@/pages/Billing'
+import Terms from '@/pages/Terms'
+import Privacy from '@/pages/Privacy'
 import Settings from '@/pages/Settings'
 import NotFound from '@/pages/NotFound'
 import Payments from '@/pages/Payments'
@@ -29,6 +32,8 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<AppLayout />}>
@@ -55,6 +60,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['admin', 'super_admin']} />}>
             <Route path="analytics" element={<Analytics />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="billing" element={<Billing />} />
           </Route>
         </Route>
       </Route>

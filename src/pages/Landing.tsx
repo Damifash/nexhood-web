@@ -88,7 +88,7 @@ const MORE_FEATURES = [
   { icon: PhoneCall, title: 'One-tap directory', body: 'The gate, the admin and emergency numbers.' },
   { icon: BellDot, title: 'Nothing missed', body: 'A red dot the moment something new happens.' },
   { icon: BarChart3, title: 'Admin analytics', body: 'Visitors, incidents and response times at a glance.' },
-  { icon: ShieldCheck, title: 'Each role sees its part', body: 'Guards and police never see the estate’s money.' },
+  { icon: ShieldCheck, title: 'Each role sees its part', body: 'Guards never see the estate’s money.' },
 ]
 
 const ROLES: { key: string; label: string; screen: { title: string; rows: string[] }; points: string[] }[] = [
@@ -108,20 +108,20 @@ const ROLES: { key: string; label: string; screen: { title: string; rows: string
     key: 'admin',
     label: 'Admin / manager',
     screen: { title: 'Overview', rows: ['Visitors today · 38', 'Payments to confirm · 3', 'Collected this month · ₦3.1m'] },
-    points: ['Invite residents, guards and police with one link each', 'Bill every house, confirm payments and remind those who owe', 'Record spending with receipts so the monthly statement writes itself'],
+    points: ['Invite residents and guards with one link each', 'Bill every house, confirm payments and remind those who owe', 'Record spending with receipts so the monthly statement writes itself'],
   },
   {
-    key: 'police',
-    label: 'Police',
-    screen: { title: 'Escalated alert', rows: ['Severity · High', 'Location · Block C', 'Reporter details'] },
-    points: ['Receive escalated alerts with location and severity', 'Get the full context before you arrive', 'Only the alerts that need you, not every gate log'],
+    key: 'emergency',
+    label: 'Emergency help',
+    screen: { title: 'Emergency numbers', rows: ['Emergency · 112', 'Police · 199', 'Fire service · Abuja'] },
+    points: ['Call 112, the police or the fire service in one tap, from the Alerts page', 'Your estate’s own police contact shows first, if your admin adds one', 'Guards see the house number before they call, so help goes to the right door'],
   },
 ]
 
 const FAQS = [
   { q: 'Does every resident need a smartphone?', a: 'No. Guards and admins need one to scan passes and handle alerts. Residents without a smartphone can still be on the estate’s list, and someone in the household can create passes for them.' },
   { q: 'What does it cost?', a: 'We’re onboarding estates from the waitlist and agreeing pricing with each one based on its size. Join the list and we’ll talk you through it. No payment is needed to join.' },
-  { q: 'How do we move our estate onto NexHood?', a: 'The estate admin or exco sets the estate up, then invites residents, guards and police. We help with the setup and with training your guards at the gate.' },
+  { q: 'How do we move our estate onto NexHood?', a: 'The estate admin or exco sets the estate up, then invites residents and guards, and adds the estate’s police contact if it has one. We help with the setup and with training your guards at the gate.' },
   { q: 'Is our data safe?', a: 'Each estate only sees its own data, and access depends on your role. Joining an existing estate is invite-only, so strangers can’t add themselves to your estate.' },
   { q: 'Can we collect service charge and dues on NexHood?', a: 'Yes. The admin sets the charges, NexHood bills each unit, and residents pay online with Paystack or by bank transfer. Everyone can see a monthly statement of what was collected and what was spent.' },
   { q: 'Does NexHood hold our money?', a: 'No. Residents pay into your estate’s own bank account. NexHood only keeps the records. When online card payments are switched on, the money goes straight from Paystack to the estate’s account and the resident sees any small fee before paying.' },
@@ -246,7 +246,7 @@ export default function Landing() {
                 {headline}
               </h1>
               <p className="rise mt-5 text-base sm:text-lg text-steel-200 max-w-xl leading-relaxed" style={{ animationDelay: '.4s' }}>
-                QR visitor passes, a panic button that reaches security and the police, and service charge with accounts every resident can see. One app for residents, guards and the estate admin.
+                QR visitor passes, a panic button that rings your guards and admin, one-tap emergency numbers, and service charge with accounts every resident can see. One app for residents, guards and the estate admin.
               </p>
               <div className="rise mt-8 flex flex-col sm:flex-row gap-3" style={{ animationDelay: '.55s' }}>
                 <button type="button" onClick={() => goToWaitlist()} className="btn-alert press alert-once text-base px-7 py-3">
@@ -436,9 +436,11 @@ export default function Landing() {
             ))}
             <a href="mailto:fasoro@nexhoodapp.com" className="hover:text-warm">fasoro@nexhoodapp.com</a>
             <Link to="/login" className="hover:text-warm">Log in</Link>
+            <Link to="/terms" className="hover:text-warm">Terms</Link>
+            <Link to="/privacy" className="hover:text-warm">Privacy</Link>
           </div>
         </div>
-        <p className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 text-xs text-steel-400">© {new Date().getFullYear()} Nexhood. Protecting homes, connecting neighbours.</p>
+        <p className="max-w-6xl mx-auto px-4 sm:px-6 pb-8 text-xs text-steel-400">© {new Date().getFullYear()} NexHood. NexHood helps neighbours reach each other fast; it is not an emergency service. In an emergency, also call 112.</p>
       </footer>
 
       {/* Sticky mobile CTA */}
@@ -515,7 +517,7 @@ export function FeaturesSection() {
             <div>
               <span className="h-11 w-11 rounded-xl bg-alert text-warm flex items-center justify-center"><Siren className="h-5 w-5" /></span>
               <h3 className="mt-4 font-display text-xl sm:text-2xl font-semibold">Panic button that reaches everyone</h3>
-              <p className="mt-2 text-sm text-steel-200 leading-relaxed">One tap alerts every guard on shift and the admin. A guard acknowledges so you know help is coming, and the police can be notified in one more tap.</p>
+              <p className="mt-2 text-sm text-steel-200 leading-relaxed">One tap alerts every guard on shift and the admin. A guard acknowledges so you know help is coming, and 112, the police or the fire service are one more tap away.</p>
             </div>
             <AlertFeedMock />
           </Reveal>
@@ -572,7 +574,7 @@ function AlertFeedMock() {
   const rows = [
     { t: '9:41pm', text: 'Panic alert · House 9', tone: 'bg-alert text-warm' },
     { t: '+12s', text: 'Mike (Gate 1) acknowledged', tone: 'bg-white/10 text-warm' },
-    { t: '+40s', text: 'Police notified with location', tone: 'bg-white/10 text-warm' },
+    { t: '+40s', text: 'Guard calls 112 from the alert', tone: 'bg-white/10 text-warm' },
     { t: '+6m', text: 'Resolved · resident safe', tone: 'bg-emerald-500/15 text-emerald-300' },
   ]
   return (

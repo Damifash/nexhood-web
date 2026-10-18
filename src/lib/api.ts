@@ -64,6 +64,8 @@ export interface RegisterPayload {
   password: string
   role: 'resident'
   estate_id: string // estate name on register (backend auto-creates)
+  accept_terms?: boolean
+  terms_version?: string
 }
 
 export async function registerUser(payload: RegisterPayload) {
@@ -500,3 +502,71 @@ export async function verifyDonation(id: string) {
 }
 
 export { API_URL }
+
+// ---------------------------------------------------------------------------
+// NexHood plan (what the estate pays NexHood)
+// ---------------------------------------------------------------------------
+export type PlanStatus = 'trialing' | 'active' | 'grace' | 'lapsed'
+
+export interface PlanOption {
+  months: number
+  total: number
+  per_month: number
+  percent_off: number
+  saving: number
+}
+
+export interface BillingOverview {
+  subscription: { status: PlanStatus; days_left: number; ends_at: string; grace_ends_at: string; trial_ends_at?: string; paid_until?: string }
+  houses: number
+  tier: { key: string; label: string; max_houses: number; monthly: number } | null
+  tiers: { key: string; label: string; max_houses: number; monthly: number }[]
+  options: PlanOption[]
+  custom_quote: boolean
+  online: boolean
+  contact: string
+  grace_days: number
+  founding_percent: number
+  history: { id: string; months: number; amount: number; method: string; paid_at: string; period_start: string; period_end: string; reference: string }[]
+}
+
+export async function getBillingStatus() {
+  const { data } = await api.get('/api/billing/status')
+  return data as { status: PlanStatus; days_left: number; ends_at: string }
+}
+
+export async function getBilling() {
+  try {
+    const { data } = await api.get('/api/billing')
+    return data as BillingOverview
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not load your plan'))
+  }
+}
+
+export async function startPlanPayment(months: number) {
+  try {
+    const { data } = await api.post('/api/billing/pay', { months })
+    return data as { authorization_url: string; reference: string }
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not start the payment'))
+  }
+}
+
+export async function verifyPlanPayment(reference: string) {
+  try {
+    const { data } = await api.get('/api/billing/verify', { params: { reference } })
+    return data as { status: string; paid_until?: string; already?: boolean }
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not confirm the payment'))
+  }
+}
+
+export async function acceptTerms(version: string) {
+  try {
+    const { data } = await api.post('/api/users/me/accept-terms', { version })
+    return data as User
+  } catch (e) {
+    throw new Error(errMsg(e, 'Could not save your agreement'))
+  }
+}

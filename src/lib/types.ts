@@ -7,6 +7,7 @@ export interface Badge {
 
 export interface User {
   id: string
+  terms_accepted_version?: string | null
   name: string
   email: string
   phone: string

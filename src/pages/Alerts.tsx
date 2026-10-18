@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Siren, ShieldAlert, PhoneCall, Phone, AlertCircle, CheckCircle2, X, MapPin, FlaskConical, Clock } from 'lucide-react'
+import { EMERGENCY_NUMBERS } from '@/lib/emergencyNumbers'
 import { acknowledgeAlert, createAlert, listAlerts, notifyPolice, resolveAlert, getEstate, getEstateContacts } from '@/lib/api'
 import type { Alert } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
@@ -192,11 +193,9 @@ export default function Alerts() {
         title="Alerts"
         subtitle={canManage ? 'Every alert rings guard and admin phones until someone responds.' : 'Press the button and every guard on duty is alerted at once.'}
         action={
-          policePhone ? (
-            <a href={`tel:${policePhone}`} className="btn-alert">
-              <Phone className="h-4 w-4" /> Call police
-            </a>
-          ) : undefined
+          <a href={`tel:${policePhone || '112'}`} className="btn-alert">
+            <Phone className="h-4 w-4" /> {policePhone ? 'Call police' : 'Call 112'}
+          </a>
         }
       />
 
@@ -221,6 +220,39 @@ export default function Alerts() {
         </div>
       )}
 
+      <details className="card p-4 mb-6 group">
+        <summary className="cursor-pointer list-none flex items-center justify-between gap-2">
+          <span className="font-semibold text-midnight-900 flex items-center gap-2">
+            <Phone className="h-4 w-4 text-alert" /> Emergency numbers
+          </span>
+          <span className="text-xs text-midnight-400 group-open:hidden">Show</span>
+        </summary>
+        <ul className="mt-3 divide-y divide-midnight-100">
+          {policePhone && (
+            <li className="py-2.5 flex items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-midnight-900">Estate police contact</span>
+                <span className="block text-xs text-midnight-400">Added by your estate admin</span>
+              </span>
+              <a href={`tel:${policePhone}`} className="btn-outline text-xs px-3 py-1.5 shrink-0">
+                <Phone className="h-3.5 w-3.5" /> {policePhone}
+              </a>
+            </li>
+          )}
+          {EMERGENCY_NUMBERS.map((n) => (
+            <li key={n.phone} className="py-2.5 flex items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-midnight-900">{n.label}</span>
+                <span className="block text-xs text-midnight-400">{n.detail}</span>
+              </span>
+              <a href={`tel:${n.phone}`} className="btn-outline text-xs px-3 py-1.5 shrink-0">
+                <Phone className="h-3.5 w-3.5" /> {n.display}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
+
       {error && (
         <div className="flex items-start gap-2 rounded-xl bg-alert-50 text-alert-700 text-sm px-4 py-3 mb-6">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" /> <span>{error}</span>
@@ -244,6 +276,17 @@ export default function Alerts() {
             </p>
           )}
           <p className="text-sm text-midnight-500 mt-1">If you can, call the gate guard or the police using the buttons below.</p>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!window.confirm('Call off this alert? Guards will be told you are safe.')) return
+              await handleResolve(myOpen.id)
+              setNotice('Alert called off. Guards have been told you are safe.')
+            }}
+            className="btn-outline mt-3 text-sm"
+          >
+            <CheckCircle2 className="h-4 w-4" /> I'm safe, cancel alert
+          </button>
         </div>
       )}
 

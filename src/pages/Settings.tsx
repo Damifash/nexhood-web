@@ -341,7 +341,7 @@ function EstateSettingsCard({ estateId }: { estateId?: string }) {
           <div>
             <label className="label" htmlFor="police-phone">Police phone number</label>
             <p className="text-xs text-midnight-400 mb-2">
-              Your nearest police division or patrol. It powers the one-tap “Call police” button on every alert.
+              Optional. Your nearest police division or patrol, if you have one. It becomes the “Call police” button on the Alerts page; without it, the button calls 112.
             </p>
             <input
               id="police-phone"

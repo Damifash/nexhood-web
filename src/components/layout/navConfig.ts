@@ -11,6 +11,7 @@ import {
   Wallet,
   Landmark,
   Wrench,
+  CreditCard,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/lib/types'
@@ -36,5 +37,6 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/app/welfare', label: 'Welfare Fund', icon: HeartHandshake, section: 'welfare', roles: ['resident', 'guard', 'admin', 'super_admin'] },
   { to: '/app/analytics', label: 'Analytics', icon: BarChart3, roles: ['admin', 'super_admin'] },
   { to: '/app/users', label: 'Users', icon: Users2, roles: ['admin', 'super_admin'] },
+  { to: '/app/billing', label: 'Plan & billing', icon: CreditCard, roles: ['admin', 'super_admin'] },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ]

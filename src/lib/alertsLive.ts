@@ -135,7 +135,8 @@ export function startVibration() {
 }
 
 export function stopVibration() {
-  if (vibeTimer) window.clearInterval(vibeTimer)
+  if (!vibeTimer) return // nothing running: don't touch the vibration motor
+  window.clearInterval(vibeTimer)
   vibeTimer = null
   if (canVibrate()) navigator.vibrate(0)
 }

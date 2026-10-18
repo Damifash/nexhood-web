@@ -84,13 +84,18 @@ export default function Login() {
         </button>
       </form>
       <p className="text-sm text-midnight-400 mt-6 text-center">
-        New resident?{' '}
+        Estate manager setting up NexHood?{' '}
         <Link to="/register" className="text-royal font-semibold hover:underline">
-          Create an account
+          Set up your estate
         </Link>
       </p>
       <p className="text-xs text-midnight-300 mt-3 text-center">
-        Guards, residents and police are invited by the estate admin.
+        Residents and guards: your estate admin sends your login by email. Check your spam folder too.
+      </p>
+      <p className="text-xs text-midnight-300 mt-3 text-center">
+        By logging in you agree to our{' '}
+        <Link to="/terms" className="underline hover:text-midnight-600">Terms</Link> and{' '}
+        <Link to="/privacy" className="underline hover:text-midnight-600">Privacy Policy</Link>.
       </p>
     </AuthLayout>
   )
