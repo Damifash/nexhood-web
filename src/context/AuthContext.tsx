@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { fetchMe, loginUser, registerUser, type RegisterPayload } from '@/lib/api'
+import { unsubscribeThisDevice } from '@/lib/alertsLive'
 import type { User } from '@/lib/types'
 
 interface AuthContextValue {
@@ -9,6 +10,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<User>
   register: (payload: RegisterPayload) => Promise<User>
   logout: () => void
+  /** true once the profile has been confirmed by the server this visit */
+  verified: boolean
   setUser: (u: User) => void
   refreshUser: () => Promise<void>
   setSessionToken: (t: string) => void
@@ -20,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [verified, setVerified] = useState(false)
 
   function persist(token: string, user: User) {
     localStorage.setItem('nexhood_token', token)
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const fresh = await fetchMe()
       setUser(fresh)
+      setVerified(true)
     } catch {
       // If the token is invalid the axios interceptor already handles
       // redirecting to /login; nothing extra to do here.
@@ -86,6 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // Fire-and-forget: the request still carries this account's token.
+    unsubscribeThisDevice(localStorage.getItem('nexhood_token'))
+    setVerified(false)
     localStorage.removeItem('nexhood_token')
     localStorage.removeItem('nexhood_user')
     setToken(null)
@@ -93,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, setUser, refreshUser, setSessionToken }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, verified, setUser, refreshUser, setSessionToken }}>
       {children}
     </AuthContext.Provider>
   )

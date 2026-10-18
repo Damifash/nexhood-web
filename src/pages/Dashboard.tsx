@@ -6,6 +6,7 @@ import { getDashboard } from '@/lib/api'
 import type { AdminDashboard, ResidentDashboard } from '@/lib/types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { AlertSetupCard } from '@/components/alerts/AlertSetupCard'
+import { InstallAppCard } from '@/components/onboarding/InstallAppCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge, statusTone } from '@/components/ui/Badge'
 import { ActivityFeed, AttentionList, KpiTile, SetupChecklist } from '@/components/analytics/Widgets'
@@ -39,6 +40,8 @@ export default function Dashboard() {
         title={`${greeting}, ${user?.name?.split(' ')[0]}`}
         subtitle={isAdmin ? `Here's how ${user?.estate_name || 'your estate'} is doing.` : 'Here’s what’s happening in your estate.'}
       />
+
+      <InstallAppCard />
 
       {loading && (
         <div className="flex justify-center py-20 text-royal">

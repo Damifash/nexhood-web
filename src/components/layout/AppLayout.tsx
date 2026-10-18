@@ -11,6 +11,7 @@ import { ThemeProvider, useTheme } from '@/context/ThemeContext'
 import { useAuth } from '@/context/AuthContext'
 import { acceptTerms, getBillingStatus, type PlanStatus } from '@/lib/api'
 import { TERMS_VERSION } from '@/lib/legal'
+import { FirstPasswordGate } from '@/components/onboarding/FirstPasswordGate'
 
 export function AppLayout() {
   return (
@@ -64,6 +65,7 @@ function AppShell() {
         <MobileTabBar onMore={() => setMobileOpen(true)} />
       </div>
     </div>
+    <FirstPasswordGate />
     <TermsGate />
     </AlertCenterProvider>
     </NotificationsProvider>
@@ -112,12 +114,14 @@ function PlanBanner() {
  *  once to agree to the current Terms and Privacy Policy. Their agreement is
  *  saved with the date and version, as the data protection rules expect. */
 function TermsGate() {
-  const { user, setUser } = useAuth()
+  const { user, setUser, verified } = useAuth()
   const location = useLocation()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  // Never stand between someone and the panic button.
-  if (!user || user.terms_accepted_version === TERMS_VERSION || location.pathname.startsWith('/app/alerts')) return null
+  // Only ask once the server has confirmed the profile (a stale copy saved on
+  // the phone made the box flash up and vanish for people who had agreed),
+  // never over the password screen, and never in front of the panic button.
+  if (!user || !verified || user.must_change_password || user.terms_accepted_version === TERMS_VERSION || location.pathname.startsWith('/app/alerts')) return null
 
   async function agree() {
     setSaving(true)

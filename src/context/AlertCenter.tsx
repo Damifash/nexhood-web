@@ -11,7 +11,10 @@ import {
 } from '@/lib/alertsLive'
 
 const POLL_MS = 8_000
-const RECENT_MS = 30 * 60 * 1000 // only take over the screen for alerts from the last 30 minutes
+// Only take over the screen (with the siren) for alerts raised in the last
+// 10 minutes. Older unanswered alerts still show on the Alerts page with a
+// red dot, but logging in later doesn't set off a siren for them.
+const RECENT_MS = 10 * 60 * 1000
 
 type Ctx = { active: Alert[]; refresh: () => void }
 const AlertCtx = createContext<Ctx>({ active: [], refresh: () => {} })

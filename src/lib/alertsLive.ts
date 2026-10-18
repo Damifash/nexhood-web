@@ -48,10 +48,29 @@ function sirenWavUrl() {
   return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }))
 }
 
+let sirenUrl = ''
+let silentUrl = ''
+
+/** A third of a second of silence, used only to "unlock" sound on a tap. */
+function silentWavUrl() {
+  const rate = 8000
+  const n = Math.floor(rate * 0.3)
+  const buf = new ArrayBuffer(44 + n * 2)
+  const v = new DataView(buf)
+  const w = (o: number, str: string) => [...str].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)))
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ')
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true)
+  w(36, 'data'); v.setUint32(40, n * 2, true) // samples stay 0 = silence
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }))
+}
+
 function siren(): HTMLAudioElement | null {
   if (typeof window === 'undefined' || typeof Audio === 'undefined') return null
   if (!sirenEl) {
-    sirenEl = new Audio(sirenWavUrl())
+    sirenUrl = sirenWavUrl()
+    silentUrl = silentWavUrl()
+    sirenEl = new Audio(sirenUrl)
     sirenEl.loop = true
     sirenEl.preload = 'auto'
     sirenEl.setAttribute('playsinline', '')
@@ -59,24 +78,28 @@ function siren(): HTMLAudioElement | null {
   return sirenEl
 }
 
-/** Call from a tap. Plays the siren silently for a moment so the phone
- * allows it to play for real later. */
+/** Call from a tap. Plays a moment of SILENCE on the siren's audio element so
+ * the phone lets that element play the real siren later. (It used to play
+ * the siren itself on mute, and some phones ignored the mute: people heard
+ * a short siren the first time they tapped after logging in.) */
 export function unlockAudio() {
   setPlaybackSession()
   const el = siren()
-  if (el && !unlocked && el.paused) {
-    el.muted = true
+  if (el && !unlocked && el.paused && !sirenTimer) {
+    el.loop = false
+    el.src = silentUrl
     el.play()
       .then(() => {
         unlocked = true
+      })
+      .catch(() => {})
+      .finally(() => {
         if (!sirenTimer) {
           el.pause()
-          el.currentTime = 0
+          el.loop = true
+          el.src = sirenUrl
+          el.load()
         }
-        el.muted = false
-      })
-      .catch(() => {
-        el.muted = false
       })
   }
   // Web Audio too (used as a fallback on browsers without <audio> autoplay).
@@ -101,6 +124,11 @@ export async function startSiren(maxMs = 90_000): Promise<boolean> {
   if (sirenTimer) window.clearTimeout(sirenTimer)
   sirenTimer = window.setTimeout(stopSiren, maxMs)
   try {
+    if (!el.src.startsWith(sirenUrl) || !sirenUrl) {
+      el.src = sirenUrl
+      el.load()
+    }
+    el.loop = true
     el.muted = false
     el.volume = 1
     el.currentTime = 0
@@ -256,4 +284,24 @@ export const ALERT_LABEL: Record<string, string> = {
 /** Other parts of the app (Alerts page, dashboard) listen for this to refresh. */
 export function announceAlertsChanged() {
   window.dispatchEvent(new Event('nexhood:alerts-changed'))
+}
+
+/** On log out: stop this phone getting alerts for the account that is leaving. */
+export async function unsubscribeThisDevice(token: string | null) {
+  try {
+    if (!pushSupported() || !token) return
+    const reg = await navigator.serviceWorker.getRegistration('/')
+    const sub = await reg?.pushManager.getSubscription()
+    if (!sub) return
+    const json = sub.toJSON()
+    // The token is passed in because logging out clears it from storage first.
+    await fetch(`${api.defaults.baseURL}/api/push/unsubscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch {
+    /* best effort */
+  }
 }

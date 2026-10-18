@@ -8,6 +8,7 @@ export interface Badge {
 export interface User {
   id: string
   terms_accepted_version?: string | null
+  must_change_password?: boolean
   name: string
   email: string
   phone: string
